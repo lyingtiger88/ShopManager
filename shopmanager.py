@@ -51,7 +51,7 @@ def init_db():
           cost INTEGER NOT NULL DEFAULT 0 CHECK(cost>=0),
           price INTEGER NOT NULL DEFAULT 0 CHECK(price>=0));
         CREATE TABLE IF NOT EXISTS jobs(
-          id INTEGER PRIMARY KEY, customer_id INTEGER NOT NULL REFERENCES customers(id),
+          id INTEGER PRIMARY KEY, order_code TEXT UNIQUE, customer_id INTEGER NOT NULL REFERENCES customers(id),
           device TEXT NOT NULL DEFAULT '', problem TEXT DEFAULT '',
           status TEXT NOT NULL DEFAULT 'در انتظار', labor INTEGER NOT NULL DEFAULT 0,
           discount INTEGER NOT NULL DEFAULT 0, paid INTEGER NOT NULL DEFAULT 0,
@@ -66,6 +66,16 @@ def init_db():
           change_qty INTEGER NOT NULL, reason TEXT NOT NULL,
           created_at TEXT NOT NULL);
         """)
+        columns = {r["name"] for r in c.execute("PRAGMA table_info(jobs)")}
+        if "order_code" not in columns:
+            c.execute("ALTER TABLE jobs ADD COLUMN order_code TEXT")
+            c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_order_code ON jobs(order_code)")
+        for job in c.execute("SELECT id, created_at FROM jobs WHERE order_code IS NULL OR order_code=''").fetchall():
+            year = (job["created_at"] or "")[:4]
+            if not (len(year) == 4 and year.isdigit()):
+                year = "0000"
+            c.execute("UPDATE jobs SET order_code=? WHERE id=?",
+                      (f"SM-{year}-{job['id']:06d}", job["id"]))
 
 
 def now():
@@ -104,9 +114,14 @@ def restock(item_id, qty):
 
 def create_job(customer_id, device, problem):
     with db() as c:
-        return c.execute(
+        created = now()
+        cursor = c.execute(
             "INSERT INTO jobs(customer_id,device,problem,created_at) VALUES(?,?,?,?)",
-            (customer_id, device.strip(), problem.strip(), now())).lastrowid
+            (customer_id, device.strip(), problem.strip(), created))
+        job_id = cursor.lastrowid
+        c.execute("UPDATE jobs SET order_code=? WHERE id=?",
+                  (f"SM-{created[:4]}-{job_id:06d}", job_id))
+        return job_id
 
 
 def use_item(job_id, item_id, qty):
@@ -163,14 +178,14 @@ def invoice(job_id):
         f"<tr><td>{e(x['name'])}</td><td>{x['qty']}</td><td>{money(x['unit_price'])}</td>"
         f"<td>{money(x['qty']*x['unit_price'])}</td></tr>" for x in lines)
     page = f"""<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
-    <title>فاکتور {job_id}</title><style>
+    <title>فاکتور {e(row['order_code'])}</title><style>
     body{{font-family:Tahoma,Arial,sans-serif;max-width:850px;margin:35px auto;line-height:2;color:#202634}}
     h1{{color:#2255a2}}table{{width:100%;border-collapse:collapse;margin:25px 0}}
     td,th{{border:1px solid #bbc6d8;padding:8px;text-align:right}}
     th{{background:#edf2fa}}.sum{{background:#f3f6fb;padding:18px}}
     button{{padding:10px 22px;cursor:pointer}}@media print{{button{{display:none}}}}
     </style></head><body><h1>فاکتور فروش / تعمیر - ShopManager</h1>
-    <p>شماره: {job_id} | تاریخ: {e(row['created_at'])} | وضعیت: {e(row['status'])}</p>
+    <p>کد یکتای سفارش / فاکتور: <strong>{e(row['order_code'])}</strong> | شماره داخلی: {job_id} | تاریخ: {e(row['created_at'])} | وضعیت: {e(row['status'])}</p>
     <p>مشتری: {e(row['customer_name'])} | تماس: {e(row['phone'])}</p>
     <p>آدرس: {e(row['address'])}</p>
     <p>کالا / دستگاه: {e(row['device'])} | شرح درخواست: {e(row['problem'])}</p>
@@ -308,9 +323,9 @@ class App(tk.Tk):
         self.problem_entry.pack(side="right", padx=6)
         ttk.Button(bar, text="ایجاد پرونده", command=lambda: self.perform(self.new_job)).pack(side="right", padx=5)
         self.job_tree = self.table(self.jtab,
-            ("id", "customer", "device", "status", "labor", "date"),
-            ("پرونده", "مشتری", "دستگاه / سفارش", "وضعیت", "دستمزد", "تاریخ"),
-            {"customer": 180, "device": 200})
+            ("id", "order_code", "customer", "device", "status", "labor", "date"),
+            ("شناسه داخلی", "کد یکتای سفارش", "مشتری", "دستگاه / سفارش", "وضعیت", "دستمزد", "تاریخ"),
+            {"order_code": 170, "customer": 180, "device": 200})
         self.job_tree.configure(height=8)
         self.job_tree.bind("<<TreeviewSelect>>", lambda _event: self.load_job())
         controls = ttk.LabelFrame(self.jtab, text="ویرایش پرونده انتخابی و ثبت مصرف منابع")
@@ -352,6 +367,9 @@ class App(tk.Tk):
         self.device_entry.delete(0, "end")
         self.problem_entry.delete(0, "end")
         self.refresh()
+        with db() as c:
+            order_code = c.execute("SELECT order_code FROM jobs WHERE id=?", (job_id,)).fetchone()[0]
+        messagebox.showinfo("سفارش ثبت شد", f"کد یکتای سفارش: {order_code}")
         for row in self.job_tree.get_children():
             if int(self.job_tree.item(row, "values")[0]) == job_id:
                 self.job_tree.selection_set(row)
@@ -392,7 +410,7 @@ class App(tk.Tk):
                 self.lines_tree.insert("", "end", values=(
                     x["name"], x["qty"], money(x["unit_price"]), money(x["qty"]*x["unit_price"])))
             self.summary_label.configure(text=(
-                f"جمع اقلام: {money(parts)} | بهای خرید اقلام: {money(costs)} | "
+                f"کد سفارش: {row['order_code']} | جمع اقلام: {money(parts)} | بهای خرید اقلام: {money(costs)} | "
                 f"جمع نهایی: {money(total)} | مانده: {money(total-row['paid'])} تومان"))
         except ValueError:
             pass
@@ -413,7 +431,7 @@ class App(tk.Tk):
                 i["id"], i["sku"] or "", i["name"], i["qty"], money(i["cost"]), money(i["price"])))
         for j in jobs:
             self.job_tree.insert("", "end", values=(
-                j["id"], j["name"], j["device"], j["status"], money(j["labor"]), j["created_at"]))
+                j["id"], j["order_code"], j["name"], j["device"], j["status"], money(j["labor"]), j["created_at"]))
         self.customer_ids = [c["id"] for c in customers]
         self.customer_choice["values"] = [f"{c['id']} - {c['name']} ({c['phone']})" for c in customers]
         self.item_ids = [i["id"] for i in items]
