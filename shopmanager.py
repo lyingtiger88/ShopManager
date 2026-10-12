@@ -124,21 +124,37 @@ def create_job(customer_id, device, problem):
         return job_id
 
 
-def use_item(job_id, item_id, qty):
-    if qty <= 0:
-        raise ValueError("تعداد مصرف باید مثبت باشد.")
+def use_items(job_id, quantities):
+    """Atomically reserve stock and record every cart line."""
+    if not quantities:
+        raise ValueError("سبد اقلام خالی است.")
+    merged = {}
+    for item_id, qty in quantities:
+        if not isinstance(qty, int) or qty <= 0:
+            raise ValueError("تعداد هر کالا باید عدد صحیح مثبت باشد.")
+        merged[item_id] = merged.get(item_id, 0) + qty
     with db() as c:
-        job = c.execute("SELECT id FROM jobs WHERE id=?", (job_id,)).fetchone()
-        item = c.execute("SELECT * FROM items WHERE id=?", (item_id,)).fetchone()
-        if not job or not item:
-            raise ValueError("پرونده یا کالا یافت نشد.")
-        if item["qty"] < qty:
-            raise ValueError(f"موجودی کافی نیست؛ موجودی فعلی: {item['qty']}")
-        c.execute("UPDATE items SET qty=qty-? WHERE id=?", (qty, item_id))
-        c.execute("INSERT INTO job_items(job_id,item_id,qty,unit_price,unit_cost) VALUES(?,?,?,?,?)",
-                  (job_id, item_id, qty, item["price"], item["cost"]))
-        c.execute("INSERT INTO stock_log(item_id,change_qty,reason,created_at) VALUES(?,?,?,?)",
-                  (item_id, -qty, f"مصرف پرونده #{job_id}", now()))
+        if not c.execute("SELECT id FROM jobs WHERE id=?", (job_id,)).fetchone():
+            raise ValueError("پرونده یافت نشد.")
+        available = {}
+        for item_id, qty in merged.items():
+            item = c.execute("SELECT * FROM items WHERE id=?", (item_id,)).fetchone()
+            if item is None:
+                raise ValueError(f"کالای {item_id} پیدا نشد.")
+            if item["qty"] < qty:
+                raise ValueError(f"موجودی {item['name']} کافی نیست؛ موجودی: {item['qty']}، درخواست: {qty}")
+            available[item_id] = item
+        for item_id, qty in merged.items():
+            item = available[item_id]
+            c.execute("UPDATE items SET qty=qty-? WHERE id=?", (qty, item_id))
+            c.execute("INSERT INTO job_items(job_id,item_id,qty,unit_price,unit_cost) VALUES(?,?,?,?,?)",
+                      (job_id, item_id, qty, item["price"], item["cost"]))
+            c.execute("INSERT INTO stock_log(item_id,change_qty,reason,created_at) VALUES(?,?,?,?)",
+                      (item_id, -qty, f"مصرف پرونده #{job_id}", now()))
+
+
+def use_item(job_id, item_id, qty):
+    use_items(job_id, [(item_id, qty)])
 
 
 def save_job(job_id, labor, discount, paid, status):
@@ -227,6 +243,8 @@ class App(tk.Tk):
         tabs.add(self.ctab, text="مشتریان")
         self.make_customers()
         self.make_items()
+        self.cart = {}
+        self.cart_job_id = None
         self.make_jobs()
         self.refresh()
 
@@ -339,8 +357,25 @@ class App(tk.Tk):
         self.qty_entry = ttk.Entry(top, width=7)
         self.qty_entry.insert(0, "1")
         self.qty_entry.pack(side="right", padx=5)
-        ttk.Button(top, text="ثبت مصرف و کسر موجودی",
+        ttk.Button(top, text="افزودن به سبد",
                    command=lambda: self.perform(self.consume)).pack(side="right", padx=10)
+        cart_controls = ttk.Frame(controls)
+        cart_controls.pack(fill="x", padx=8, pady=3)
+        ttk.Label(cart_controls, text="سبد اقلام (هنوز از موجودی کسر نشده):").pack(side="right")
+        ttk.Button(cart_controls, text="ثبت همه اقلام در پرونده و کسر موجودی",
+                   command=lambda: self.perform(self.commit_cart)).pack(side="left", padx=6)
+        ttk.Button(cart_controls, text="حذف قلم انتخابی",
+                   command=lambda: self.perform(self.remove_cart_item)).pack(side="left", padx=6)
+        self.cart_tree = ttk.Treeview(controls, columns=("id", "name", "qty", "price", "total"),
+                                      show="headings", height=4, selectmode="browse")
+        for key, heading, width in (
+            ("id", "کد", 55), ("name", "نام قطعه", 240), ("qty", "تعداد", 90),
+            ("price", "قیمت واحد", 130), ("total", "جمع", 150)):
+            self.cart_tree.heading(key, text=heading)
+            self.cart_tree.column(key, width=width, anchor="center")
+        self.cart_tree.pack(fill="x", padx=8)
+        self.cart_total_label = ttk.Label(controls, text="جمع سبد: ۰ تومان")
+        self.cart_total_label.pack(anchor="e", padx=12, pady=3)
         bottom = ttk.Frame(controls)
         bottom.pack(fill="x", pady=8)
         self.job_fields = {}
@@ -376,13 +411,61 @@ class App(tk.Tk):
                 self.job_tree.see(row)
                 break
 
+    def render_cart(self):
+        for row in self.cart_tree.get_children():
+            self.cart_tree.delete(row)
+        total = 0
+        with db() as c:
+            for item_id, qty in self.cart.items():
+                item = c.execute("SELECT name,price FROM items WHERE id=?", (item_id,)).fetchone()
+                if item:
+                    subtotal = qty * item["price"]
+                    total += subtotal
+                    self.cart_tree.insert("", "end", values=(
+                        item_id, item["name"], qty, money(item["price"]), money(subtotal)))
+        self.cart_total_label.configure(text=f"جمع سبد: {money(total)} تومان")
+
     def consume(self):
         job_id = self.selected(self.job_tree, "پرونده")
         if self.item_choice.current() < 0:
             raise ValueError("کالای مصرفی را انتخاب کنید.")
         item_id = self.item_ids[self.item_choice.current()]
-        use_item(job_id, item_id, amount(self.qty_entry.get(), "تعداد"))
+        qty = amount(self.qty_entry.get(), "تعداد")
+        if qty <= 0:
+            raise ValueError("تعداد باید بیشتر از صفر باشد.")
+        if self.cart_job_id != job_id:
+            self.cart.clear()
+            self.cart_job_id = job_id
+        with db() as c:
+            item = c.execute("SELECT qty,name FROM items WHERE id=?", (item_id,)).fetchone()
+        if not item or self.cart.get(item_id, 0) + qty > item["qty"]:
+            raise ValueError("موجودی کافی برای تعداد انتخاب‌شده وجود ندارد.")
+        self.cart[item_id] = self.cart.get(item_id, 0) + qty
+        self.render_cart()
+
+    def remove_cart_item(self):
+        selected = self.cart_tree.selection()
+        if not selected:
+            raise ValueError("قلمی از سبد انتخاب نشده است.")
+        item_id = int(self.cart_tree.item(selected[0], "values")[0])
+        self.cart.pop(item_id, None)
+        self.render_cart()
+
+    def commit_cart(self):
+        job_id = self.selected(self.job_tree, "پرونده")
+        if job_id != self.cart_job_id:
+            raise ValueError("سبد مربوط به این پرونده نیست.")
+        use_items(job_id, list(self.cart.items()))
+        self.cart.clear()
+        self.render_cart()
+        self.refresh()
+        for row in self.job_tree.get_children():
+            if int(self.job_tree.item(row, "values")[0]) == job_id:
+                self.job_tree.selection_set(row)
+                self.job_tree.see(row)
+                break
         self.load_job()
+
 
     def update_job(self):
         job_id = self.selected(self.job_tree, "پرونده")
@@ -399,6 +482,10 @@ class App(tk.Tk):
         try:
             job_id = self.selected(self.job_tree, "پرونده")
             row, lines, parts, costs, total = job_summary(job_id)
+            if self.cart_job_id != job_id:
+                self.cart.clear()
+                self.cart_job_id = job_id
+                self.render_cart()
             for key in ("labor", "discount", "paid"):
                 field = self.job_fields[key]
                 field.delete(0, "end")
