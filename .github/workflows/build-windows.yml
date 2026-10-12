@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-windows:
@@ -33,3 +33,17 @@ jobs:
           path: dist/ShopManager.exe
           if-no-files-found: error
           retention-days: 30
+      - name: Publish Windows EXE in Releases
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $tag = "windows-latest"
+          gh release view $tag --repo $env:GH_REPO *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --repo $env:GH_REPO --target "${{ github.sha }}" --title "ShopManager - Windows Latest" --notes "Latest successfully built Windows executable for ShopManager. Download ShopManager.exe below." --latest
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          gh release upload $tag "dist/ShopManager.exe" --clobber --repo $env:GH_REPO
+          if ($LASTEXITCODE -ne 0) { exit 1 }
