@@ -5,6 +5,7 @@ import os
 import sqlite3
 import sys
 import webbrowser
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 import tkinter as tk
@@ -32,11 +33,20 @@ def amount(v, label="مبلغ"):
         raise ValueError(f"{label} باید عدد صحیح نامنفی باشد.")
 
 
+@contextmanager
 def db():
+    """Yield a configured SQLite connection and always close it."""
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
-    return conn
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def init_db():
