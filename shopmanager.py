@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """ShopManager - offline customer, inventory, repair and invoice manager."""
 import html
+import json
 import os
 import sqlite3
 import sys
@@ -63,6 +64,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS jobs(
           id INTEGER PRIMARY KEY, order_code TEXT UNIQUE, customer_id INTEGER NOT NULL REFERENCES customers(id),
           device TEXT NOT NULL DEFAULT '', problem TEXT DEFAULT '',
+          intake_checks TEXT NOT NULL DEFAULT '[]', diagnosed_fault TEXT DEFAULT '',
+          estimate_parts INTEGER NOT NULL DEFAULT 0, estimate_labor INTEGER NOT NULL DEFAULT 0,
           status TEXT NOT NULL DEFAULT 'در انتظار', labor INTEGER NOT NULL DEFAULT 0,
           discount INTEGER NOT NULL DEFAULT 0, paid INTEGER NOT NULL DEFAULT 0,
           created_at TEXT NOT NULL, notes TEXT DEFAULT '');
@@ -77,9 +80,19 @@ def init_db():
           created_at TEXT NOT NULL);
         """)
         columns = {r["name"] for r in c.execute("PRAGMA table_info(jobs)")}
-        if "order_code" not in columns:
-            c.execute("ALTER TABLE jobs ADD COLUMN order_code TEXT")
-            c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_order_code ON jobs(order_code)")
+        migrations = {
+            "order_code": "TEXT",
+            "intake_checks": "TEXT NOT NULL DEFAULT '[]'",
+            "diagnosed_fault": "TEXT DEFAULT ''",
+            "estimate_parts": "INTEGER NOT NULL DEFAULT 0",
+            "estimate_labor": "INTEGER NOT NULL DEFAULT 0",
+        }
+        for column, definition in migrations.items():
+            if column not in columns:
+                c.execute(f"ALTER TABLE jobs ADD COLUMN {column} {definition}")
+        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_order_code ON jobs(order_code)")
+        for item in c.execute("SELECT id FROM items WHERE sku IS NULL OR sku=''").fetchall():
+            c.execute("UPDATE items SET sku=? WHERE id=?", (f"ITM-{item['id']:06d}", item["id"]))
         for job in c.execute("SELECT id, created_at FROM jobs WHERE order_code IS NULL OR order_code=''").fetchall():
             year = (job["created_at"] or "")[:4]
             if not (len(year) == 4 and year.isdigit()):
@@ -106,10 +119,14 @@ def add_item(sku, name, qty, cost, price):
     with db() as c:
         cur = c.execute("INSERT INTO items(sku,name,qty,cost,price) VALUES(?,?,?,?,?)",
                         (sku.strip() or None, name.strip(), qty, cost, price))
+        item_id = cur.lastrowid
+        item_code = sku.strip() or f"ITM-{item_id:06d}"
+        if not sku.strip():
+            c.execute("UPDATE items SET sku=? WHERE id=?", (item_code, item_id))
         if qty:
             c.execute("INSERT INTO stock_log(item_id,change_qty,reason,created_at) VALUES(?,?,?,?)",
-                      (cur.lastrowid, qty, "موجودی اولیه", now()))
-        return cur.lastrowid
+                      (item_id, qty, "موجودی اولیه", now()))
+        return item_id
 
 
 def restock(item_id, qty):
@@ -132,6 +149,17 @@ def create_job(customer_id, device, problem):
         c.execute("UPDATE jobs SET order_code=? WHERE id=?",
                   (f"SM-{created[:4]}-{job_id:06d}", job_id))
         return job_id
+
+
+def save_intake(job_id, reported_fault, checks, diagnosed_fault, estimate_parts, estimate_labor):
+    checks = list(dict.fromkeys(str(x).strip() for x in checks if str(x).strip()))
+    with db() as c:
+        if not c.execute("SELECT id FROM jobs WHERE id=?", (job_id,)).fetchone():
+            raise ValueError("پرونده یافت نشد.")
+        c.execute("""UPDATE jobs SET problem=?, intake_checks=?, diagnosed_fault=?,
+                     estimate_parts=?, estimate_labor=? WHERE id=?""",
+                  (reported_fault.strip(), json.dumps(checks, ensure_ascii=False),
+                   diagnosed_fault.strip(), estimate_parts, estimate_labor, job_id))
 
 
 def use_items(job_id, quantities):
@@ -203,6 +231,16 @@ def invoice(job_id):
     rows = "".join(
         f"<tr><td>{e(x['name'])}</td><td>{x['qty']}</td><td>{money(x['unit_price'])}</td>"
         f"<td>{money(x['qty']*x['unit_price'])}</td></tr>" for x in lines)
+    intake_checks = json.loads(row["intake_checks"] or "[]")
+    estimated_total = row["estimate_parts"] + row["estimate_labor"]
+    diagnosis_block = f"""<h3>گزارش پذیرش و عیب‌یابی</h3>
+    <p><strong>عیب اعلامی مشتری:</strong> {e(row['problem']) or 'ثبت نشده'}</p>
+    <p><strong>موارد ثبت‌شده هنگام تحویل:</strong> {e('، '.join(intake_checks)) or 'موردی انتخاب نشده'}</p>
+    <p><strong>عیب تشخیص‌داده‌شده توسط تعمیرکار:</strong> {e(row['diagnosed_fault']) or 'هنوز ثبت نشده'}</p>
+    <h3>برآورد اولیه (غیرقطعی)</h3>
+    <p>برآورد قطعات: {money(row['estimate_parts'])} تومان | برآورد دستمزد: {money(row['estimate_labor'])} تومان</p>
+    <p><strong>جمع برآورد اولیه: {money(estimated_total)} تومان</strong></p>
+    <p>این برآورد با فاکتور نهایی متفاوت است و پس از عیب‌یابی/تأیید مشتری ممکن است تغییر کند.</p>""
     page = f"""<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
     <title>فاکتور {e(row['order_code'])}</title><style>
     body{{font-family:Tahoma,Arial,sans-serif;max-width:850px;margin:35px auto;line-height:2;color:#202634}}
@@ -214,7 +252,8 @@ def invoice(job_id):
     <p>کد یکتای سفارش / فاکتور: <strong>{e(row['order_code'])}</strong> | شماره داخلی: {job_id} | تاریخ: {e(row['created_at'])} | وضعیت: {e(row['status'])}</p>
     <p>مشتری: {e(row['customer_name'])} | تماس: {e(row['phone'])}</p>
     <p>آدرس: {e(row['address'])}</p>
-    <p>کالا / دستگاه: {e(row['device'])} | شرح درخواست: {e(row['problem'])}</p>
+    <p>کالا / دستگاه: {e(row['device'])}</p>
+    {diagnosis_block}
     <table><thead><tr><th>شرح کالا یا قطعه</th><th>تعداد</th><th>قیمت واحد (تومان)</th>
     <th>جمع (تومان)</th></tr></thead><tbody>{rows}</tbody></table>
     <div class="sum">جمع اقلام: {money(parts)} تومان<br>
@@ -347,7 +386,7 @@ class App(tk.Tk):
         self.device_entry = ttk.Entry(bar, width=23, justify="right")
         self.device_entry.pack(side="right", padx=6)
         ttk.Label(bar, text="شرح درخواست:").pack(side="right")
-        self.problem_entry = ttk.Entry(bar, width=29, justify="right")
+        self.problem_entry = ttk.Entry(bar, width=24, justify="right")
         self.problem_entry.pack(side="right", padx=6)
         ttk.Button(bar, text="ایجاد پرونده", command=lambda: self.perform(self.new_job)).pack(side="right", padx=5)
         self.job_tree = self.table(self.jtab,
@@ -356,6 +395,38 @@ class App(tk.Tk):
             {"order_code": 170, "customer": 180, "device": 200})
         self.job_tree.configure(height=8)
         self.job_tree.bind("<<TreeviewSelect>>", lambda _event: self.load_job())
+        intake = ttk.LabelFrame(self.jtab, text="پذیرش گوشی: چک‌لیست عیب، تشخیص واقعی و برآورد اولیه")
+        intake.pack(fill="x", padx=10, pady=5)
+        self.fault_options = [
+            "روشن نمی‌شود", "شارژ نمی‌شود", "باتری ضعیف", "شکستگی نمایشگر",
+            "مشکل تاچ", "خرابی دوربین", "مشکل صدا/میکروفون", "آنتن‌دهی/سیم‌کارت",
+            "آب‌خوردگی", "خرابی دکمه‌ها", "مشکل نرم‌افزاری", "خرابی سوکت شارژ",
+            "شکستگی بدنه", "سایر"
+        ]
+        self.fault_vars = {}
+        fault_grid = ttk.Frame(intake)
+        fault_grid.pack(fill="x", padx=6, pady=3)
+        for idx, fault in enumerate(self.fault_options):
+            var = tk.BooleanVar(value=False)
+            self.fault_vars[fault] = var
+            ttk.Checkbutton(fault_grid, text=fault, variable=var).grid(
+                row=idx // 4, column=3 - (idx % 4), sticky="e", padx=8, pady=2)
+        fields = ttk.Frame(intake)
+        fields.pack(fill="x", padx=6, pady=4)
+        ttk.Label(fields, text="عیب تشخیص‌داده‌شده:").pack(side="right", padx=4)
+        self.diagnosed_entry = ttk.Entry(fields, width=30, justify="right")
+        self.diagnosed_entry.pack(side="right", padx=4)
+        ttk.Label(fields, text="برآورد قطعات:").pack(side="right", padx=4)
+        self.estimate_parts_entry = ttk.Entry(fields, width=10, justify="right")
+        self.estimate_parts_entry.insert(0, "0")
+        self.estimate_parts_entry.pack(side="right", padx=4)
+        ttk.Label(fields, text="برآورد دستمزد:").pack(side="right", padx=4)
+        self.estimate_labor_entry = ttk.Entry(fields, width=10, justify="right")
+        self.estimate_labor_entry.insert(0, "0")
+        self.estimate_labor_entry.pack(side="right", padx=4)
+        ttk.Button(fields, text="ذخیره پذیرش و برآورد",
+                   command=lambda: self.perform(self.save_intake_ui)).pack(side="right", padx=8)
+
         controls = ttk.LabelFrame(self.jtab, text="ویرایش پرونده انتخابی و ثبت مصرف منابع")
         controls.pack(fill="x", padx=10, pady=8)
         top = ttk.Frame(controls)
@@ -404,11 +475,22 @@ class App(tk.Tk):
         self.lines_tree = self.table(self.jtab, ("name", "qty", "price", "sum"),
                                      ("اقلام مصرفی", "تعداد", "قیمت واحد", "جمع"))
 
+    def save_intake_ui(self):
+        job_id = self.selected(self.job_tree, "پرونده")
+        checks = [fault for fault, var in self.fault_vars.items() if var.get()]
+        save_intake(
+            job_id, self.problem_entry.get() if False else self.current_reported_fault,
+            checks, self.diagnosed_entry.get(),
+            amount(self.estimate_parts_entry.get(), "برآورد قطعات"),
+            amount(self.estimate_labor_entry.get(), "برآورد دستمزد"))
+        self.load_job()
+
     def new_job(self):
         if self.customer_choice.current() < 0:
             raise ValueError("ابتدا مشتری را انتخاب کنید.")
         customer_id = self.customer_ids[self.customer_choice.current()]
         job_id = create_job(customer_id, self.device_entry.get(), self.problem_entry.get())
+        self.current_reported_fault = self.problem_entry.get()
         self.device_entry.delete(0, "end")
         self.problem_entry.delete(0, "end")
         self.refresh()
@@ -496,6 +578,16 @@ class App(tk.Tk):
                 self.cart.clear()
                 self.cart_job_id = job_id
                 self.render_cart()
+            self.current_reported_fault = row["problem"] or ""
+            self.diagnosed_entry.delete(0, "end")
+            self.diagnosed_entry.insert(0, row["diagnosed_fault"] or "")
+            self.estimate_parts_entry.delete(0, "end")
+            self.estimate_parts_entry.insert(0, str(row["estimate_parts"]))
+            self.estimate_labor_entry.delete(0, "end")
+            self.estimate_labor_entry.insert(0, str(row["estimate_labor"]))
+            saved_checks = set(json.loads(row["intake_checks"] or "[]"))
+            for fault, var in self.fault_vars.items():
+                var.set(fault in saved_checks)
             for key in ("labor", "discount", "paid"):
                 field = self.job_fields[key]
                 field.delete(0, "end")
@@ -533,7 +625,7 @@ class App(tk.Tk):
         self.customer_choice["values"] = [f"{c['id']} - {c['name']} ({c['phone']})" for c in customers]
         self.item_ids = [i["id"] for i in items]
         self.item_choice["values"] = [
-            f"{i['id']} - {i['name']} | موجودی {i['qty']} | {money(i['price'])} تومان" for i in items]
+            f"{i['sku']} - {i['name']} | موجودی {i['qty']} | {money(i['price'])} تومان" for i in items]
 
 
 if __name__ == "__main__":
