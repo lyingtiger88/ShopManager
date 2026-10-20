@@ -55,5 +55,28 @@ class InventoryCartTests(unittest.TestCase):
             self.assertEqual(c.execute("SELECT COUNT(DISTINCT order_code) FROM jobs").fetchone()[0], 2)
 
 
+    def test_item_code_is_generated_when_blank(self):
+        item_id = app.add_item("", "Charging port", 2, 10, 20)
+        with app.db() as c:
+            code = c.execute("SELECT sku FROM items WHERE id=?", (item_id,)).fetchone()[0]
+        self.assertEqual(code, f"ITM-{item_id:06d}")
+
+    def test_intake_faults_and_estimate_are_saved(self):
+        app.save_intake(
+            self.job,
+            "شارژ نمی‌شود",
+            ["شارژ نمی‌شود", "شکستگی نمایشگر"],
+            "خرابی سوکت شارژ",
+            250000,
+            150000,
+        )
+        row, _, _, _, _ = app.job_summary(self.job)
+        self.assertEqual(row["problem"], "شارژ نمی‌شود")
+        self.assertEqual(row["diagnosed_fault"], "خرابی سوکت شارژ")
+        self.assertEqual(row["estimate_parts"], 250000)
+        self.assertEqual(row["estimate_labor"], 150000)
+        self.assertIn("شکستگی نمایشگر", row["intake_checks"])
+
+
 if __name__ == "__main__":
     unittest.main()
