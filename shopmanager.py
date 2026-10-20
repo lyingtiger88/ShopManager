@@ -232,15 +232,26 @@ def invoice(job_id):
         f"<tr><td>{e(x['name'])}</td><td>{x['qty']}</td><td>{money(x['unit_price'])}</td>"
         f"<td>{money(x['qty']*x['unit_price'])}</td></tr>" for x in lines)
     intake_checks = json.loads(row["intake_checks"] or "[]")
+    reported = (row["problem"] or "").strip().casefold()
+    diagnosed = (row["diagnosed_fault"] or "").strip().casefold()
+    if not diagnosed:
+        comparison = "تشخیص نهایی هنوز ثبت نشده است."
+    elif not reported:
+        comparison = "عیب اعلامی مشتری ثبت نشده؛ تشخیص تعمیرکار درج شده است."
+    elif reported == diagnosed:
+        comparison = "عیب تشخیص‌داده‌شده با عیب اعلامی مشتری همخوان است."
+    else:
+        comparison = "تفاوت بین عیب اعلامی مشتری و تشخیص تعمیرکار وجود دارد."
     estimated_total = row["estimate_parts"] + row["estimate_labor"]
     diagnosis_block = f"""<h3>گزارش پذیرش و عیب‌یابی</h3>
     <p><strong>عیب اعلامی مشتری:</strong> {e(row['problem']) or 'ثبت نشده'}</p>
     <p><strong>موارد ثبت‌شده هنگام تحویل:</strong> {e('، '.join(intake_checks)) or 'موردی انتخاب نشده'}</p>
     <p><strong>عیب تشخیص‌داده‌شده توسط تعمیرکار:</strong> {e(row['diagnosed_fault']) or 'هنوز ثبت نشده'}</p>
+    <p><strong>مقایسه عیب‌ها:</strong> {e(comparison)}</p>
     <h3>برآورد اولیه (غیرقطعی)</h3>
     <p>برآورد قطعات: {money(row['estimate_parts'])} تومان | برآورد دستمزد: {money(row['estimate_labor'])} تومان</p>
     <p><strong>جمع برآورد اولیه: {money(estimated_total)} تومان</strong></p>
-    <p>این برآورد با فاکتور نهایی متفاوت است و پس از عیب‌یابی/تأیید مشتری ممکن است تغییر کند.</p>""
+    <p>این برآورد با فاکتور نهایی متفاوت است و پس از عیب‌یابی/تأیید مشتری ممکن است تغییر کند.</p>"""
     page = f"""<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
     <title>فاکتور {e(row['order_code'])}</title><style>
     body{{font-family:Tahoma,Arial,sans-serif;max-width:850px;margin:35px auto;line-height:2;color:#202634}}
@@ -366,9 +377,12 @@ class App(tk.Tk):
 
     def new_item(self):
         sku, name, qty, cost, price = (x.get() for x in self.item_fields)
-        add_item(sku, name, amount(qty, "موجودی"), amount(cost, "قیمت خرید"), amount(price, "قیمت فروش"))
+        item_id = add_item(sku, name, amount(qty, "موجودی"), amount(cost, "قیمت خرید"), amount(price, "قیمت فروش"))
+        with db() as c:
+            item_code = c.execute("SELECT sku FROM items WHERE id=?", (item_id,)).fetchone()["sku"]
         for f in self.item_fields:
             f.delete(0, "end")
+        messagebox.showinfo("کالا ثبت شد", f"کد خودکار کالا: {item_code}")
 
     def increase_stock(self):
         item_id = self.selected(self.item_tree, "کالا")
@@ -385,7 +399,7 @@ class App(tk.Tk):
         ttk.Label(bar, text="کالا / دستگاه:").pack(side="right")
         self.device_entry = ttk.Entry(bar, width=23, justify="right")
         self.device_entry.pack(side="right", padx=6)
-        ttk.Label(bar, text="شرح درخواست:").pack(side="right")
+        ttk.Label(bar, text="عیب اعلامی مشتری:").pack(side="right")
         self.problem_entry = ttk.Entry(bar, width=24, justify="right")
         self.problem_entry.pack(side="right", padx=6)
         ttk.Button(bar, text="ایجاد پرونده", command=lambda: self.perform(self.new_job)).pack(side="right", padx=5)
@@ -479,7 +493,7 @@ class App(tk.Tk):
         job_id = self.selected(self.job_tree, "پرونده")
         checks = [fault for fault, var in self.fault_vars.items() if var.get()]
         save_intake(
-            job_id, self.problem_entry.get() if False else self.current_reported_fault,
+            job_id, self.current_reported_fault,
             checks, self.diagnosed_entry.get(),
             amount(self.estimate_parts_entry.get(), "برآورد قطعات"),
             amount(self.estimate_labor_entry.get(), "برآورد دستمزد"))
