@@ -255,7 +255,9 @@ public final class MainActivity extends Activity {
     }
     private void synchronize() {
         if(url().isEmpty()||key().isEmpty()){toast("ابتدا آدرس و کد اتصال را وارد کنید");return;}
-        JSONArray tasks=new JSONArray(pending.toString());
+        JSONArray tasks;
+        try { tasks=new JSONArray(pending.toString()); }
+        catch(Exception e) { toast("صف همگام‌سازی معتبر نیست"); return; }
         toast("در حال اتصال به سیستم اصلی");
         executor.execute(()->{
             JSONArray remaining=new JSONArray();
