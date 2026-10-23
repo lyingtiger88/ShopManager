@@ -66,6 +66,12 @@ def apply_operation(op):
                 return {"id": row["id"], "order_code": row["order_code"], "duplicate": True}
             customer_ref = valid_text(op.get("customer_ref"), 100)
             customer = c.execute("SELECT id FROM customers WHERE client_ref=?", (customer_ref,)).fetchone()
+            if not customer and not customer_ref and op.get("customer_id"):
+                try:
+                    customer_id = int(op["customer_id"])
+                except (ValueError, TypeError):
+                    raise ValueError("شناسه مشتری معتبر نیست")
+                customer = c.execute("SELECT id FROM customers WHERE id=?", (customer_id,)).fetchone()
             if not customer:
                 raise ValueError("ابتدا مشتری مرتبط باید همگام‌سازی شود")
             checks = op.get("checks", [])
