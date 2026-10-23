@@ -55,14 +55,14 @@ def init_db():
         c.executescript("""
         CREATE TABLE IF NOT EXISTS customers(
           id INTEGER PRIMARY KEY, name TEXT NOT NULL, phone TEXT DEFAULT '',
-          address TEXT DEFAULT '', notes TEXT DEFAULT '');
+          address TEXT DEFAULT '', notes TEXT DEFAULT '', client_ref TEXT UNIQUE);
         CREATE TABLE IF NOT EXISTS items(
           id INTEGER PRIMARY KEY, sku TEXT UNIQUE, name TEXT NOT NULL,
           qty INTEGER NOT NULL DEFAULT 0 CHECK(qty>=0),
           cost INTEGER NOT NULL DEFAULT 0 CHECK(cost>=0),
           price INTEGER NOT NULL DEFAULT 0 CHECK(price>=0));
         CREATE TABLE IF NOT EXISTS jobs(
-          id INTEGER PRIMARY KEY, order_code TEXT UNIQUE, customer_id INTEGER NOT NULL REFERENCES customers(id),
+          id INTEGER PRIMARY KEY, order_code TEXT UNIQUE, client_ref TEXT UNIQUE, customer_id INTEGER NOT NULL REFERENCES customers(id),
           device TEXT NOT NULL DEFAULT '', problem TEXT DEFAULT '',
           intake_checks TEXT NOT NULL DEFAULT '[]', diagnosed_fault TEXT DEFAULT '',
           estimate_parts INTEGER NOT NULL DEFAULT 0, estimate_labor INTEGER NOT NULL DEFAULT 0,
@@ -79,6 +79,12 @@ def init_db():
           change_qty INTEGER NOT NULL, reason TEXT NOT NULL,
           created_at TEXT NOT NULL);
         """)
+        customer_columns = {r["name"] for r in c.execute("PRAGMA table_info(customers)")}
+        if "client_ref" not in customer_columns:
+            c.execute("ALTER TABLE customers ADD COLUMN client_ref TEXT")
+        job_columns = {r["name"] for r in c.execute("PRAGMA table_info(jobs)")}
+        if "client_ref" not in job_columns:
+            c.execute("ALTER TABLE jobs ADD COLUMN client_ref TEXT")
         columns = {r["name"] for r in c.execute("PRAGMA table_info(jobs)")}
         migrations = {
             "order_code": "TEXT",
@@ -301,12 +307,26 @@ class App(tk.Tk):
         tabs.add(self.jtab, text="پرونده‌ها و فاکتور")
         tabs.add(self.itab, text="کالاها و منابع")
         tabs.add(self.ctab, text="مشتریان")
+        sync_bar = ttk.Frame(self)
+        sync_bar.pack(fill="x", padx=12, pady=3)
+        ttk.Button(sync_bar, text="فعال‌سازی همگام‌سازی گوشی", command=self.start_sync_ui).pack(side="right", padx=5)
+        ttk.Button(sync_bar, text="به‌روزرسانی لیست‌ها", command=self.refresh).pack(side="right", padx=5)
         self.make_customers()
         self.make_items()
         self.cart = {}
         self.cart_job_id = None
         self.make_jobs()
         self.refresh()
+
+    def start_sync_ui(self):
+        try:
+            from sync_server import start_server, pairing_info
+            if not getattr(self, "_sync_started", False):
+                start_server()
+                self._sync_started = True
+            messagebox.showinfo("اتصال گوشی", pairing_info())
+        except Exception as exc:
+            messagebox.showerror("خطای سرویس همگام‌سازی", str(exc))
 
     def label_entry(self, parent, label, width=24):
         f = ttk.Frame(parent)
