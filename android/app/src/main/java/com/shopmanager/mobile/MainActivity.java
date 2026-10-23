@@ -58,6 +58,7 @@ public final class MainActivity extends Activity {
         scroll.addView(body);
         status();
         connectionPage();
+        if(!url().isEmpty() && !key().isEmpty()) synchronize();
     }
     private TextView text(String content) {
         TextView t = new TextView(this);
@@ -185,7 +186,8 @@ public final class MainActivity extends Activity {
             try {
                 op.put("kind","job");
                 op.put("ref",UUID.randomUUID().toString());
-                if(!person.optString("client_ref").isEmpty())op.put("customer_ref",person.optString("client_ref"));
+                String clientRef = person.isNull("client_ref") ? "" : person.optString("client_ref","");
+                if(!clientRef.isEmpty())op.put("customer_ref",clientRef);
                 else op.put("customer_id",person.optLong("id"));
                 op.put("device",device.getText().toString().trim());
                 op.put("reported",reported.getText().toString().trim());
