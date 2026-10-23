@@ -87,8 +87,9 @@ public final class MainActivity extends Activity {
         body.addView(t);
     }
     private void status() {
+        JSONArray knownJobs = snapshot.optJSONArray("jobs");
         status.setText("در انتظار ارسال: " + pending.length() +
-                " | اطلاعات دریافت‌شده: " + snapshot.optJSONArray("jobs",new JSONArray()).length() + " پرونده");
+                " | اطلاعات دریافت‌شده: " + (knownJobs == null ? 0 : knownJobs.length()) + " پرونده");
     }
     private void save() {
         prefs.edit().putString("pending",pending.toString())
