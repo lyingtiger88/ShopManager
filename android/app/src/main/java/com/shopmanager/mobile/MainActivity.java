@@ -13,6 +13,10 @@ import java.net.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -23,6 +27,7 @@ public final class MainActivity extends Activity {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private JSONObject snapshot = new JSONObject();
     private JSONArray pending = new JSONArray();
+    private JSONObject deviceCatalog = new JSONObject();
     private String[] faults = {"روشن نمی‌شود","شارژ نمی‌شود","باتری ضعیف","شکستگی نمایشگر",
             "مشکل تاچ","خرابی دوربین","مشکل صدا/میکروفون","آنتن‌دهی","آب‌خوردگی",
             "خرابی دکمه‌ها","مشکل نرم‌افزاری","خرابی سوکت شارژ","شکستگی بدنه","سایر"};
@@ -32,6 +37,11 @@ public final class MainActivity extends Activity {
         prefs = getSharedPreferences("shopmanager_sync", MODE_PRIVATE);
         try { pending = new JSONArray(prefs.getString("pending", "[]")); } catch(Exception ignored) {}
         try { snapshot = new JSONObject(prefs.getString("snapshot", "{}")); } catch(Exception ignored) {}
+        try (InputStream in=getAssets().open("device_catalog.json")) {
+            ByteArrayOutputStream out=new ByteArrayOutputStream(); byte[] buf=new byte[4096]; int n;
+            while((n=in.read(buf))!=-1)out.write(buf,0,n);
+            deviceCatalog=new JSONObject(out.toString("UTF-8"));
+        } catch(Exception ignored) {}
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(16, 20, 16, 12);
@@ -170,11 +180,66 @@ public final class MainActivity extends Activity {
         Spinner picker=new Spinner(this);
         picker.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,choices));
         body.addView(picker);
+        body.addView(text("۱) نوع دستگاه"));
         Spinner deviceType=new Spinner(this);
         deviceType.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,
-                new String[]{"گوشی هوشمند","گوشی دکمه‌ای"}));
-        body.addView(text("نوع گوشی"));body.addView(deviceType);
-        EditText device=field("برند و مدل دستگاه","");
+                new String[]{"گوشی لمسی","گوشی دکمه‌ای"}));
+        body.addView(deviceType);
+        body.addView(text("۲) برند"));
+        Spinner brandPicker=new Spinner(this); body.addView(brandPicker);
+        body.addView(text("۳) جست‌وجو و انتخاب مدل"));
+        EditText modelSearch=field("نام مدل را جست‌وجو کنید...","");
+        ListView modelList=new ListView(this);
+        body.addView(modelList,new LinearLayout.LayoutParams(-1,260));
+        EditText customModel=field("اگر مدل در فهرست نیست، اینجا وارد کنید","");
+        TextView selectedModel=text("مدل انتخاب‌شده: هنوز انتخاب نشده");
+        body.addView(selectedModel);
+        final String[] chosenModel={""};
+        final String[] chosenBrand={""};
+        Runnable refreshModels=()->{
+            String category=deviceType.getSelectedItem().toString();
+            JSONObject brands=deviceCatalog.optJSONObject(category);
+            ArrayList<String> brandNames=new ArrayList<>();
+            if(brands!=null){Iterator<String> it=brands.keys();while(it.hasNext())brandNames.add(it.next());}
+            java.util.Collections.sort(brandNames);
+            brandPicker.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,brandNames));
+            if(!brandNames.isEmpty())brandPicker.setSelection(0);
+        };
+        Runnable filterModels=()->{
+            JSONObject brands=deviceCatalog.optJSONObject(deviceType.getSelectedItem().toString());
+            String brand=brandPicker.getSelectedItem()==null?"":brandPicker.getSelectedItem().toString();
+            chosenBrand[0]=brand;
+            JSONArray models=brands==null?new JSONArray():brands.optJSONArray(brand);
+            ArrayList<String> filtered=new ArrayList<>();
+            String query=modelSearch.getText().toString().trim().toLowerCase(java.util.Locale.ROOT);
+            if(models!=null)for(int i=0;i<models.length();i++){
+                String model=models.optString(i);
+                if(model.toLowerCase(java.util.Locale.ROOT).contains(query))filtered.add(model);
+            }
+            modelList.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_list_item_1,filtered));
+            chosenModel[0]="";
+            selectedModel.setText("مدل انتخاب‌شده: هنوز انتخاب نشده");
+        };
+        refreshModels.run();
+        brandPicker.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){
+            public void onNothingSelected(android.widget.AdapterView<?> p){}
+            public void onItemSelected(android.widget.AdapterView<?> p,View v,int pos,long id){filterModels.run();}
+        });
+        deviceType.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){
+            public void onNothingSelected(android.widget.AdapterView<?> p){}
+            public void onItemSelected(android.widget.AdapterView<?> p,View v,int pos,long id){refreshModels.run();}
+        });
+        modelSearch.addTextChangedListener(new android.text.TextWatcher(){
+            public void beforeTextChanged(CharSequence a,int b,int c,int d){}
+            public void onTextChanged(CharSequence a,int b,int c){filterModels.run();}
+            public void afterTextChanged(android.text.Editable e){}
+        });
+        modelList.setOnItemClickListener((parent,view,position,id)->{
+            chosenModel[0]=String.valueOf(parent.getItemAtPosition(position));
+            customModel.setText("");
+            selectedModel.setText("مدل انتخاب‌شده: "+chosenBrand[0]+" "+chosenModel[0]);
+        });
+        body.addView(text("۴) در صورت نبود مدل در فهرست، نام آن را دستی وارد کنید."));
         EditText reported=field("عیب اعلامی مشتری","");
         EditText diagnosis=field("تشخیص تعمیرکار (در صورت مشخص‌بودن)","");
         EditText estimateParts=field("برآورد اولیه قطعات (تومان)","0");
@@ -228,7 +293,10 @@ public final class MainActivity extends Activity {
                 String clientRef=person.isNull("client_ref")?"":person.optString("client_ref","");
                 if(!clientRef.isEmpty())op.put("customer_ref",clientRef);
                 else op.put("customer_id",person.optLong("id"));
-                op.put("device",deviceType.getSelectedItem().toString()+" - "+device.getText().toString().trim());
+                String manualModel=customModel.getText().toString().trim();
+                String model=manualModel.isEmpty()?chosenModel[0]:manualModel;
+                if(model.isEmpty()){toast("مدل گوشی را از فهرست انتخاب کنید یا دستی وارد کنید");return;}
+                op.put("device",deviceType.getSelectedItem().toString()+" | "+chosenBrand[0]+" | "+model);
                 op.put("reported",reported.getText().toString().trim());
                 op.put("diagnosis",diagnosis.getText().toString().trim());
                 op.put("estimate_parts",parseMoney(estimateParts.getText().toString()));
