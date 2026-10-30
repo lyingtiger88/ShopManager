@@ -177,6 +177,9 @@ public final class MainActivity extends Activity {
         EditText device=field("برند و مدل دستگاه","");
         EditText reported=field("عیب اعلامی مشتری","");
         EditText diagnosis=field("تشخیص تعمیرکار (در صورت مشخص‌بودن)","");
+        EditText estimateParts=field("برآورد اولیه قطعات (تومان)","0");
+        EditText estimateLabor=field("برآورد اولیه دستمزد (تومان)","0");
+        body.addView(text("این مبالغ صرفاً برآورد اولیه‌اند و مبلغ قطعی فاکتور نیستند."));
         body.addView(text("موارد مشاهده‌شده هنگام تحویل"));
         CheckBox[] checkboxes=new CheckBox[faults.length];
         LinearLayout keypadPanel=new LinearLayout(this);
@@ -228,6 +231,8 @@ public final class MainActivity extends Activity {
                 op.put("device",deviceType.getSelectedItem().toString()+" - "+device.getText().toString().trim());
                 op.put("reported",reported.getText().toString().trim());
                 op.put("diagnosis",diagnosis.getText().toString().trim());
+                op.put("estimate_parts",parseMoney(estimateParts.getText().toString()));
+                op.put("estimate_labor",parseMoney(estimateLabor.getText().toString()));
                 JSONArray selected=new JSONArray();
                 for(int i=0;i<faults.length;i++)if(checkboxes[i].isChecked())selected.put(faults[i]);
                 if(checkboxes[9].isChecked()&&deviceType.getSelectedItemPosition()==1){
@@ -276,6 +281,10 @@ public final class MainActivity extends Activity {
             if(item!=null)body.addView(text(item.optString("sku")+" | "+item.optString("name")
                     +" | موجودی "+item.optInt("qty")+" | قیمت "+item.optLong("price")+" تومان"));
         }
+    }
+    private long parseMoney(String raw) {
+        try { return Math.max(0, Long.parseLong(raw.trim().replace(",","").replace("٬",""))); }
+        catch(Exception e) { return 0; }
     }
     private JSONObject http(String path,JSONObject payload)throws Exception {
         if(!url().startsWith("http://"))throw new IOException("نشانی شبکه محلی با http:// وارد شود");
