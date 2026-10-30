@@ -1,0 +1,206 @@
+{
+  "گوشی لمسی": {
+    "Samsung": [
+      "Galaxy S26 Ultra",
+      "Galaxy S26+",
+      "Galaxy S26",
+      "Galaxy S25 Ultra",
+      "Galaxy S25+",
+      "Galaxy S25",
+      "Galaxy S25 FE",
+      "Galaxy S24 Ultra",
+      "Galaxy S24 FE",
+      "Galaxy A57 5G",
+      "Galaxy A56 5G",
+      "Galaxy A55 5G",
+      "Galaxy A37 5G",
+      "Galaxy A36 5G",
+      "Galaxy A35 5G",
+      "Galaxy A26 5G",
+      "Galaxy A25 5G",
+      "Galaxy A17 5G",
+      "Galaxy A16 5G",
+      "Galaxy A15",
+      "Galaxy M55",
+      "Galaxy M35"
+    ],
+    "Xiaomi": [
+      "Xiaomi 17 Ultra",
+      "Xiaomi 17 Pro",
+      "Xiaomi 17",
+      "Xiaomi 15 Ultra",
+      "Xiaomi 15",
+      "Xiaomi 14T Pro",
+      "Xiaomi 14T",
+      "Xiaomi 14",
+      "Xiaomi 13T Pro",
+      "Xiaomi 13T"
+    ],
+    "Redmi": [
+      "Redmi Note 15 Pro+ 5G",
+      "Redmi Note 15 Pro 5G",
+      "Redmi Note 15 5G",
+      "Redmi Note 14 Pro+ 5G",
+      "Redmi Note 14 Pro 5G",
+      "Redmi Note 14 5G",
+      "Redmi Note 13 Pro+ 5G",
+      "Redmi Note 13 Pro 5G",
+      "Redmi Note 13",
+      "Redmi 15C",
+      "Redmi 15",
+      "Redmi 14C"
+    ],
+    "POCO": [
+      "POCO F8 Ultra",
+      "POCO F8 Pro",
+      "POCO F7 Ultra",
+      "POCO F7 Pro",
+      "POCO F7",
+      "POCO X7 Pro",
+      "POCO X7",
+      "POCO M7 Pro 5G",
+      "POCO M7"
+    ],
+    "Apple": [
+      "iPhone 17 Pro Max",
+      "iPhone 17 Pro",
+      "iPhone 17",
+      "iPhone 16 Pro Max",
+      "iPhone 16 Pro",
+      "iPhone 16 Plus",
+      "iPhone 16",
+      "iPhone 15 Pro Max",
+      "iPhone 15 Pro",
+      "iPhone 15 Plus",
+      "iPhone 15",
+      "iPhone 14 Pro Max",
+      "iPhone 14 Pro",
+      "iPhone 14",
+      "iPhone 13"
+    ],
+    "Motorola": [
+      "Edge 70 Pro",
+      "Edge 60 Pro",
+      "Edge 60 Fusion",
+      "Edge 60",
+      "Moto G86",
+      "Moto G85",
+      "Moto G75",
+      "Moto G55",
+      "Moto G35"
+    ],
+    "Honor": [
+      "Magic8 Pro",
+      "Magic7 Pro",
+      "Magic7 Lite",
+      "Magic V5",
+      "200 Pro",
+      "200",
+      "X9c",
+      "X9b",
+      "X8c",
+      "X7c",
+      "X6c"
+    ],
+    "Huawei": [
+      "Pura 80 Pro",
+      "Pura 80",
+      "Pura 70 Pro",
+      "Pura 70",
+      "Mate X6",
+      "Nova 13 Pro",
+      "Nova 13",
+      "Nova 12s"
+    ],
+    "Google": [
+      "Pixel 10 Pro XL",
+      "Pixel 10 Pro",
+      "Pixel 10",
+      "Pixel 9 Pro XL",
+      "Pixel 9 Pro",
+      "Pixel 9",
+      "Pixel 8a"
+    ],
+    "OnePlus": [
+      "OnePlus 15",
+      "OnePlus 13",
+      "OnePlus 13R",
+      "OnePlus Nord 5",
+      "OnePlus Nord CE5"
+    ],
+    "Nothing": [
+      "Phone (3)",
+      "Phone (3a) Pro",
+      "Phone (3a)",
+      "Phone (2a)"
+    ],
+    "Realme": [
+      "GT 7 Pro",
+      "GT 7",
+      "14 Pro+",
+      "14 Pro",
+      "14 5G",
+      "C75",
+      "C65"
+    ],
+    "Infinix": [
+      "NOTE 50 Pro+",
+      "NOTE 50 Pro",
+      "NOTE 50",
+      "HOT 60 Pro+",
+      "HOT 60 Pro",
+      "HOT 50 Pro+"
+    ],
+    "Tecno": [
+      "Camon 40 Pro 5G",
+      "Camon 40",
+      "Spark 40 Pro+",
+      "Spark 40 Pro",
+      "Pova 7 Pro 5G",
+      "Pova 7"
+    ],
+    "Nokia": [
+      "G42 5G",
+      "G22",
+      "C32",
+      "C31",
+      "G11 Plus"
+    ]
+  },
+  "گوشی دکمه‌ای": {
+    "Nokia": [
+      "Nokia 3210 (2024)",
+      "Nokia 6310 (2024)",
+      "Nokia 5310 (2024)",
+      "Nokia 230 (2024)",
+      "Nokia 225 4G (2024)",
+      "Nokia 235 4G (2024)",
+      "Nokia 110 4G (2024)",
+      "Nokia 105 4G (2024)",
+      "Nokia 105 (2023)",
+      "Nokia 106 (2023)",
+      "Nokia 110 (2022)",
+      "Nokia 2660 Flip",
+      "Nokia 2720 Flip"
+    ],
+    "itel": [
+      "itel it2165",
+      "itel it2173",
+      "itel it5262",
+      "itel it5608",
+      "itel Magic 2 4G"
+    ],
+    "موتورولا": [
+      "Motorola Moto A10",
+      "Motorola Moto A50"
+    ],
+    "سامسونگ": [
+      "Samsung Guru Music 2",
+      "Samsung Metro B350E"
+    ],
+    "متفرقه": [
+      "گوشی دکمه‌ای ساده (مدل نامشخص)",
+      "گوشی دکمه‌ای تاشو (مدل نامشخص)"
+    ]
+  }
+}
