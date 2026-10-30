@@ -416,9 +416,13 @@ class App(tk.Tk):
         ttk.Label(bar, text="مشتری:").pack(side="right")
         self.customer_choice = ttk.Combobox(bar, state="readonly", width=27, justify="right")
         self.customer_choice.pack(side="right", padx=6)
-        ttk.Label(bar, text="کالا / دستگاه:").pack(side="right")
-        self.device_entry = ttk.Entry(bar, width=23, justify="right")
-        self.device_entry.pack(side="right", padx=6)
+        ttk.Label(bar, text="نوع دستگاه:").pack(side="right")
+        self.device_type = ttk.Combobox(bar, state="readonly", width=14, values=("هوشمند","دکمه‌ای"), justify="right")
+        self.device_type.set("هوشمند")
+        self.device_type.pack(side="right", padx=4)
+        ttk.Label(bar, text="مدل دستگاه:").pack(side="right")
+        self.device_entry = ttk.Entry(bar, width=18, justify="right")
+        self.device_entry.pack(side="right", padx=4)
         ttk.Label(bar, text="عیب اعلامی مشتری:").pack(side="right")
         self.problem_entry = ttk.Entry(bar, width=24, justify="right")
         self.problem_entry.pack(side="right", padx=6)
@@ -445,6 +449,27 @@ class App(tk.Tk):
             self.fault_vars[fault] = var
             ttk.Checkbutton(fault_grid, text=fault, variable=var).grid(
                 row=idx // 4, column=3 - (idx % 4), sticky="e", padx=8, pady=2)
+        self.keypad_frame = ttk.LabelFrame(intake, text="انتخاب دکمه‌های معیوب گوشی")
+        self.keypad_vars = {}
+        keypad_rows = [
+            ["چراغ‌قوه", "بلندتر", "کمتر"],
+            ["کلید چپ", "جهت بالا", "کلید راست"],
+            ["جهت چپ", "OK", "جهت راست"],
+            ["جهت پایین", "بازگشت", "منو"],
+            ["تماس", "پایان تماس", "پاک‌کردن"],
+            ["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"],
+            ["*", "0", "#"]
+        ]
+        for rr, row_keys in enumerate(keypad_rows):
+            for cc, key_name in enumerate(row_keys):
+                var = tk.BooleanVar(value=False)
+                self.keypad_vars[key_name] = var
+                ttk.Checkbutton(self.keypad_frame, text=key_name, variable=var).grid(
+                    row=rr, column=cc, padx=10, pady=2, sticky="ew")
+        self.keypad_frame.pack_forget()
+        self.fault_vars["خرابی دکمه‌ها"].trace_add(
+            "write", lambda *_: self.toggle_keypad())
+        self.device_type.bind("<<ComboboxSelected>>", lambda _e: self.toggle_keypad())
         fields = ttk.Frame(intake)
         fields.pack(fill="x", padx=6, pady=4)
         ttk.Label(fields, text="عیب تشخیص‌داده‌شده:").pack(side="right", padx=4)
@@ -509,9 +534,19 @@ class App(tk.Tk):
         self.lines_tree = self.table(self.jtab, ("name", "qty", "price", "sum"),
                                      ("اقلام مصرفی", "تعداد", "قیمت واحد", "جمع"))
 
+    def toggle_keypad(self):
+        show = self.device_type.get() == "دکمه‌ای" and self.fault_vars["خرابی دکمه‌ها"].get()
+        if show:
+            self.keypad_frame.pack(fill="x", padx=8, pady=4)
+        else:
+            self.keypad_frame.pack_forget()
+
     def save_intake_ui(self):
         job_id = self.selected(self.job_tree, "پرونده")
         checks = [fault for fault, var in self.fault_vars.items() if var.get()]
+        faulty_keys = [key for key, var in self.keypad_vars.items() if var.get()]
+        if faulty_keys:
+            checks.append("دکمه‌های معیوب: " + "، ".join(faulty_keys))
         save_intake(
             job_id, self.current_reported_fault,
             checks, self.diagnosed_entry.get(),
@@ -622,6 +657,11 @@ class App(tk.Tk):
             saved_checks = set(json.loads(row["intake_checks"] or "[]"))
             for fault, var in self.fault_vars.items():
                 var.set(fault in saved_checks)
+            saved_key_text = next((x for x in saved_checks if x.startswith("دکمه‌های معیوب:")), "")
+            saved_keys = set(saved_key_text.replace("دکمه‌های معیوب:", "").strip().split("، ")) if saved_key_text else set()
+            for key, var in self.keypad_vars.items():
+                var.set(key in saved_keys)
+            self.toggle_keypad()
             for key in ("labor", "discount", "paid"):
                 field = self.job_fields[key]
                 field.delete(0, "end")
