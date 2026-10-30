@@ -575,21 +575,25 @@ class App(tk.Tk):
             return {}
 
     def update_device_brands(self):
-        brands = self.device_catalog.get(self.device_type.get(), {})
-        names = sorted(brands.keys())
+        category = self.device_type.get()
+        brands = self.device_catalog.get(category, {})
+        names = sorted(brands.keys(), key=str.casefold)
         self.device_brand.configure(values=names)
         self.device_brand.set(names[0] if names else "")
+        self.device_search.delete(0, "end")
+        self.device_entry.set("")
         self.update_device_models()
 
     def update_device_models(self):
-        models = self.device_catalog.get(self.device_type.get(), {}).get(self.device_brand.get(), [])
+        category = self.device_type.get()
+        brands = self.device_catalog.get(category, {})
+        brand = self.device_brand.get()
+        models = brands.get(brand, [])
         query = self.device_search.get().strip().casefold()
         filtered = [m for m in models if query in m.casefold()]
         self.device_entry.configure(values=filtered)
         current = self.device_entry.get().strip()
         if current and current not in filtered:
-            self.device_entry.set("")
-        elif not current and filtered:
             self.device_entry.set("")
 
     def new_job(self):
