@@ -558,7 +558,7 @@ class App(tk.Tk):
         if self.customer_choice.current() < 0:
             raise ValueError("ابتدا مشتری را انتخاب کنید.")
         customer_id = self.customer_ids[self.customer_choice.current()]
-        job_id = create_job(customer_id, self.device_entry.get(), self.problem_entry.get())
+        job_id = create_job(customer_id, f"{self.device_type.get()} - {self.device_entry.get()}", self.problem_entry.get())
         self.current_reported_fault = self.problem_entry.get()
         self.device_entry.delete(0, "end")
         self.problem_entry.delete(0, "end")
