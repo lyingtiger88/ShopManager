@@ -168,37 +168,83 @@ public final class MainActivity extends Activity {
         String[] choices=new String[people.length()];
         for(int i=0;i<people.length();i++) choices[i]=people.optJSONObject(i).optString("name");
         Spinner picker=new Spinner(this);
-        ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,choices);
-        picker.setAdapter(adapter);body.addView(picker);
-        EditText device=field("مدل / مشخصات دستگاه","");
+        picker.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,choices));
+        body.addView(picker);
+        Spinner deviceType=new Spinner(this);
+        deviceType.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,
+                new String[]{"گوشی هوشمند","گوشی دکمه‌ای"}));
+        body.addView(text("نوع گوشی"));body.addView(deviceType);
+        EditText device=field("برند و مدل دستگاه","");
         EditText reported=field("عیب اعلامی مشتری","");
         EditText diagnosis=field("تشخیص تعمیرکار (در صورت مشخص‌بودن)","");
         body.addView(text("موارد مشاهده‌شده هنگام تحویل"));
         CheckBox[] checkboxes=new CheckBox[faults.length];
+        LinearLayout keypadPanel=new LinearLayout(this);
+        keypadPanel.setOrientation(LinearLayout.VERTICAL);
+        body.addView(keypadPanel);
+        CheckBox[] keys=new CheckBox[21];
+        String[][] rows={{"چراغ‌قوه","بلندتر","کمتر"},{"کلید چپ","جهت بالا","کلید راست"},
+                {"جهت چپ","OK","جهت راست"},{"جهت پایین","بازگشت","منو"},
+                {"تماس","پایان تماس","پاک‌کردن"},{"1","2","3"},{"4","5","6"},
+                {"7","8","9"},{"*","0","#"}};
+        java.util.ArrayList<String> keyNames=new java.util.ArrayList<>();
+        for(String[] row:rows) for(String key:row) keyNames.add(key);
         for(int i=0;i<faults.length;i++){
+            final int index=i;
             checkboxes[i]=new CheckBox(this);
             checkboxes[i].setText(faults[i]);body.addView(checkboxes[i]);
+            if("خرابی دکمه‌ها".equals(faults[i])) checkboxes[i].setOnCheckedChangeListener((v,checked)->{
+                boolean feature=deviceType.getSelectedItemPosition()==1;
+                keypadPanel.setVisibility(checked&&feature?View.VISIBLE:View.GONE);
+            });
         }
+        deviceType.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){
+            public void onNothingSelected(android.widget.AdapterView<?> p){}
+            public void onItemSelected(android.widget.AdapterView<?> p,View v,int pos,long id){
+                boolean buttonFault=checkboxes[9]!=null&&checkboxes[9].isChecked();
+                keypadPanel.setVisibility(pos==1&&buttonFault?View.VISIBLE:View.GONE);
+            }
+        });
+        keypadPanel.addView(text("روی تصویر کلیدها، دکمه‌های معیوب را انتخاب کنید"));
+        for(String[] row:rows){
+            LinearLayout line=new LinearLayout(this);line.setOrientation(LinearLayout.HORIZONTAL);
+            keypadPanel.addView(line);
+            for(String key:row){
+                CheckBox cb=new CheckBox(this);cb.setText(key);cb.setTextSize(12);
+                line.addView(cb,new LinearLayout.LayoutParams(0,-2,1));
+                cb.setTag(key);
+            }
+        }
+        keypadPanel.setVisibility(View.GONE);
         action("ثبت پذیرش (کد نهایی پس از همگام‌سازی)",()->{
             JSONObject person=people.optJSONObject(picker.getSelectedItemPosition());
             if(person==null){toast("مشتری انتخاب نشده");return;}
             JSONObject op=new JSONObject();
             try {
-                op.put("kind","job");
-                op.put("ref",UUID.randomUUID().toString());
-                String clientRef = person.isNull("client_ref") ? "" : person.optString("client_ref","");
+                op.put("kind","job");op.put("ref",UUID.randomUUID().toString());
+                String clientRef=person.isNull("client_ref")?"":person.optString("client_ref","");
                 if(!clientRef.isEmpty())op.put("customer_ref",clientRef);
                 else op.put("customer_id",person.optLong("id"));
-                op.put("device",device.getText().toString().trim());
+                op.put("device",deviceType.getSelectedItem().toString()+" - "+device.getText().toString().trim());
                 op.put("reported",reported.getText().toString().trim());
                 op.put("diagnosis",diagnosis.getText().toString().trim());
                 JSONArray selected=new JSONArray();
                 for(int i=0;i<faults.length;i++)if(checkboxes[i].isChecked())selected.put(faults[i]);
+                if(checkboxes[9].isChecked()&&deviceType.getSelectedItemPosition()==1){
+                    for(int i=0;i<keypadPanel.getChildCount();i++){
+                        View child=keypadPanel.getChildAt(i);
+                        if(child instanceof LinearLayout){
+                            LinearLayout line=(LinearLayout)child;
+                            for(int j=0;j<line.getChildCount();j++){
+                                CheckBox cb=(CheckBox)line.getChildAt(j);
+                                if(cb.isChecked())selected.put("دکمه معیوب: "+cb.getText());
+                            }
+                        }
+                    }
+                }
                 op.put("checks",selected);
-                pending.put(op);save();
-                toast("پذیرش با شناسه موقت ثبت شد");
-                intakePage();
-            } catch(Exception e){toast(e.getMessage());}
+                pending.put(op);save();toast("پذیرش با شناسه موقت ثبت شد");intakePage();
+            }catch(Exception e){toast(e.getMessage());}
         });
     }
     private void jobsPage() {
