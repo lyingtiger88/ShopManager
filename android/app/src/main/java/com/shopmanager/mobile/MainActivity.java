@@ -197,17 +197,31 @@ public final class MainActivity extends Activity {
         final String[] chosenModel={""};
         final String[] chosenBrand={""};
         Runnable refreshModels=()->{
-            String category=deviceType.getSelectedItem().toString();
+            String category=String.valueOf(deviceType.getSelectedItem());
             JSONObject brands=deviceCatalog.optJSONObject(category);
             ArrayList<String> brandNames=new ArrayList<>();
             if(brands!=null){Iterator<String> it=brands.keys();while(it.hasNext())brandNames.add(it.next());}
-            java.util.Collections.sort(brandNames);
+            java.util.Collections.sort(brandNames,String.CASE_INSENSITIVE_ORDER);
+            chosenBrand[0]="";
+            chosenModel[0]="";
+            selectedModel.setText("مدل انتخاب‌شده: هنوز انتخاب نشده");
             brandPicker.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,brandNames));
-            if(!brandNames.isEmpty())brandPicker.setSelection(0);
+            if(!brandNames.isEmpty()) brandPicker.setSelection(0);
+            else {
+                modelList.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_list_item_1,new ArrayList<String>()));
+            }
         };
         Runnable filterModels=()->{
-            JSONObject brands=deviceCatalog.optJSONObject(deviceType.getSelectedItem().toString());
+            String category=String.valueOf(deviceType.getSelectedItem());
+            JSONObject brands=deviceCatalog.optJSONObject(category);
             String brand=brandPicker.getSelectedItem()==null?"":brandPicker.getSelectedItem().toString();
+            if(brands==null || !brands.has(brand)) {
+                modelList.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_list_item_1,new ArrayList<String>()));
+                chosenBrand[0]="";
+                chosenModel[0]="";
+                selectedModel.setText("مدل انتخاب‌شده: هنوز انتخاب نشده");
+                return;
+            }
             chosenBrand[0]=brand;
             JSONArray models=brands==null?new JSONArray():brands.optJSONArray(brand);
             ArrayList<String> filtered=new ArrayList<>();
@@ -227,7 +241,14 @@ public final class MainActivity extends Activity {
         });
         deviceType.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){
             public void onNothingSelected(android.widget.AdapterView<?> p){}
-            public void onItemSelected(android.widget.AdapterView<?> p,View v,int pos,long id){refreshModels.run();}
+            public void onItemSelected(android.widget.AdapterView<?> p,View v,int pos,long id){
+                modelSearch.setText("");
+                customModel.setText("");
+                chosenBrand[0]="";
+                chosenModel[0]="";
+                selectedModel.setText("مدل انتخاب‌شده: هنوز انتخاب نشده");
+                refreshModels.run();
+            }
         });
         modelSearch.addTextChangedListener(new android.text.TextWatcher(){
             public void beforeTextChanged(CharSequence a,int b,int c,int d){}
