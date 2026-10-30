@@ -78,12 +78,16 @@ def apply_operation(op):
             if not isinstance(checks, list) or len(checks) > 40:
                 raise ValueError("چک‌لیست معتبر نیست")
             checks = [valid_text(x, 100) for x in checks]
-            cur = c.execute("""INSERT INTO jobs(customer_id,client_ref,device,problem,intake_checks,diagnosed_fault,created_at)
-                               VALUES(?,?,?,?,?,?,?)""",
+            estimate_parts = max(0, int(op.get("estimate_parts", 0)))
+            estimate_labor = max(0, int(op.get("estimate_labor", 0)))
+            cur = c.execute("""INSERT INTO jobs(customer_id,client_ref,device,problem,intake_checks,
+                               diagnosed_fault,estimate_parts,estimate_labor,created_at)
+                               VALUES(?,?,?,?,?,?,?,?,?)""",
                             (customer["id"], ref, valid_text(op.get("device"), 150),
                              valid_text(op.get("reported"), 700),
                              json.dumps(checks, ensure_ascii=False),
-                             valid_text(op.get("diagnosis"), 700), now()))
+                             valid_text(op.get("diagnosis"), 700),
+                             estimate_parts, estimate_labor, now()))
             job_id = cur.lastrowid
             code = f"SM-{now()[:4]}-{job_id:06d}"
             c.execute("UPDATE jobs SET order_code=? WHERE id=?", (code, job_id))
@@ -101,7 +105,7 @@ def snapshot():
             "SELECT id,sku,name,qty,price FROM items ORDER BY id DESC LIMIT 1000")]
         jobs = [dict(x) for x in c.execute(
             """SELECT j.id,j.order_code,j.client_ref,j.device,j.problem,j.intake_checks,
-                      j.diagnosed_fault,j.labor,j.discount,j.paid,j.status,j.customer_id,
+                      j.diagnosed_fault,j.estimate_parts,j.estimate_labor,j.labor,j.discount,j.paid,j.status,j.customer_id,
                       c.name AS customer_name FROM jobs j JOIN customers c ON c.id=j.customer_id
                ORDER BY j.id DESC LIMIT 1000""")]
     return {"role": "master", "customers": customers, "items": items, "jobs": jobs}
