@@ -231,7 +231,7 @@ public final class MainActivity extends Activity {
         });
         modelSearch.addTextChangedListener(new android.text.TextWatcher(){
             public void beforeTextChanged(CharSequence a,int b,int c,int d){}
-            public void onTextChanged(CharSequence a,int b,int c){filterModels.run();}
+            public void onTextChanged(CharSequence a,int b,int c,int d){filterModels.run();}
             public void afterTextChanged(android.text.Editable e){}
         });
         modelList.setOnItemClickListener((parent,view,position,id)->{
