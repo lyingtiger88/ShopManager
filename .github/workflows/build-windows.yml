@@ -25,7 +25,7 @@ jobs:
       - name: Test inventory and invoice logic
         run: python -m unittest discover -p 'test_*.py' -v
       - name: Build single-file executable
-        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name ShopManager shopmanager.py
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --add-data "device_catalog.json;." --name ShopManager shopmanager.py
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
