@@ -416,13 +416,26 @@ class App(tk.Tk):
         ttk.Label(bar, text="مشتری:").pack(side="right")
         self.customer_choice = ttk.Combobox(bar, state="readonly", width=27, justify="right")
         self.customer_choice.pack(side="right", padx=6)
-        ttk.Label(bar, text="نوع دستگاه:").pack(side="right")
-        self.device_type = ttk.Combobox(bar, state="readonly", width=14, values=("هوشمند","دکمه‌ای"), justify="right")
-        self.device_type.set("هوشمند")
+        device_row = ttk.Frame(self.jtab)
+        device_row.pack(fill="x", padx=8, pady=3)
+        ttk.Label(device_row, text="نوع دستگاه:").pack(side="right")
+        self.device_type = ttk.Combobox(device_row, state="readonly", width=14,
+            values=("گوشی لمسی","گوشی دکمه‌ای"), justify="right")
+        self.device_type.set("گوشی لمسی")
         self.device_type.pack(side="right", padx=4)
-        ttk.Label(bar, text="مدل دستگاه:").pack(side="right")
-        self.device_entry = ttk.Entry(bar, width=18, justify="right")
+        ttk.Label(device_row, text="برند:").pack(side="right")
+        self.device_brand = ttk.Combobox(device_row, state="readonly", width=16, justify="right")
+        self.device_brand.pack(side="right", padx=4)
+        ttk.Label(device_row, text="جست‌وجوی مدل:").pack(side="right")
+        self.device_search = ttk.Entry(device_row, width=20, justify="right")
+        self.device_search.pack(side="right", padx=4)
+        self.device_entry = ttk.Combobox(device_row, state="normal", width=25, justify="right")
         self.device_entry.pack(side="right", padx=4)
+        self.device_catalog = self.load_device_catalog()
+        self.device_type.bind("<<ComboboxSelected>>", lambda _e: self.update_device_brands())
+        self.device_brand.bind("<<ComboboxSelected>>", lambda _e: self.update_device_models())
+        self.device_search.bind("<KeyRelease>", lambda _e: self.update_device_models())
+        self.update_device_brands()
         ttk.Label(bar, text="عیب اعلامی مشتری:").pack(side="right")
         self.problem_entry = ttk.Entry(bar, width=24, justify="right")
         self.problem_entry.pack(side="right", padx=6)
@@ -554,11 +567,40 @@ class App(tk.Tk):
             amount(self.estimate_labor_entry.get(), "برآورد دستمزد"))
         self.load_job()
 
+    def load_device_catalog(self):
+        try:
+            with Path(__file__).with_name("device_catalog.json").open(encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return {}
+
+    def update_device_brands(self):
+        brands = self.device_catalog.get(self.device_type.get(), {})
+        names = sorted(brands.keys())
+        self.device_brand.configure(values=names)
+        self.device_brand.set(names[0] if names else "")
+        self.update_device_models()
+
+    def update_device_models(self):
+        models = self.device_catalog.get(self.device_type.get(), {}).get(self.device_brand.get(), [])
+        query = self.device_search.get().strip().casefold()
+        filtered = [m for m in models if query in m.casefold()]
+        self.device_entry.configure(values=filtered)
+        current = self.device_entry.get().strip()
+        if current and current not in filtered:
+            self.device_entry.set("")
+        elif not current and filtered:
+            self.device_entry.set("")
+
     def new_job(self):
         if self.customer_choice.current() < 0:
             raise ValueError("ابتدا مشتری را انتخاب کنید.")
         customer_id = self.customer_ids[self.customer_choice.current()]
-        job_id = create_job(customer_id, f"{self.device_type.get()} - {self.device_entry.get()}", self.problem_entry.get())
+        model = self.device_entry.get().strip()
+        if not model:
+            raise ValueError("مدل دستگاه را از فهرست انتخاب یا نام آن را وارد کنید.")
+        device_name = f"{self.device_type.get()} | {self.device_brand.get()} | {model}"
+        job_id = create_job(customer_id, device_name, self.problem_entry.get())
         self.current_reported_fault = self.problem_entry.get()
         self.device_entry.delete(0, "end")
         self.problem_entry.delete(0, "end")
