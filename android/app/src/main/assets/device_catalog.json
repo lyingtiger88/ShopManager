@@ -181,14 +181,67 @@
       "Nokia 106 (2023)",
       "Nokia 110 (2022)",
       "Nokia 2660 Flip",
-      "Nokia 2720 Flip"
+      "Nokia 2720 Flip",
+      "Nokia 1011",
+      "Nokia 2110",
+      "Nokia 3210",
+      "Nokia 3310",
+      "Nokia 3330",
+      "Nokia 3410",
+      "Nokia 3510i",
+      "Nokia 5110",
+      "Nokia 5130",
+      "Nokia 5210",
+      "Nokia 5510",
+      "Nokia 6020",
+      "Nokia 6030",
+      "Nokia 6070",
+      "Nokia 6100",
+      "Nokia 6110",
+      "Nokia 6150",
+      "Nokia 6210",
+      "Nokia 6310i",
+      "Nokia 6600 fold",
+      "Nokia 6610",
+      "Nokia 6230i",
+      "Nokia 6300",
+      "Nokia 6500 classic",
+      "Nokia 6700 classic",
+      "Nokia 8800",
+      "Nokia E50",
+      "Nokia E51",
+      "Nokia E52",
+      "Nokia E63",
+      "Nokia E71",
+      "Nokia E72",
+      "Nokia E90 Communicator",
+      "Nokia N-Gage",
+      "Nokia 105",
+      "Nokia 106",
+      "Nokia 110",
+      "Nokia 125",
+      "Nokia 150",
+      "Nokia 215 4G",
+      "Nokia 220 4G",
+      "Nokia 225 4G",
+      "Nokia 230",
+      "Nokia 235 4G",
+      "Nokia 3310 3G",
+      "Nokia 8110 4G"
     ],
     "itel": [
       "itel it2165",
       "itel it2173",
       "itel it5262",
       "itel it5608",
-      "itel Magic 2 4G"
+      "itel Magic 2 4G",
+      "itel it2160",
+      "itel it2163",
+      "itel it2171",
+      "itel it2180",
+      "itel it2190",
+      "itel it5626",
+      "itel Power 700"
     ],
     "موتورولا": [
       "Motorola Moto A10",
@@ -201,6 +254,513 @@
     "متفرقه": [
       "گوشی دکمه‌ای ساده (مدل نامشخص)",
       "گوشی دکمه‌ای تاشو (مدل نامشخص)"
+    ],
+    "Samsung": [
+      "Samsung SGH-A100",
+      "Samsung SGH-E250",
+      "Samsung SGH-D500",
+      "Samsung SGH-D900",
+      "Samsung E1080",
+      "Samsung E1200",
+      "Samsung E1272",
+      "Samsung E2152",
+      "Samsung C100",
+      "Samsung C260",
+      "Samsung C3010",
+      "Samsung C5212",
+      "Samsung C3322",
+      "Samsung Guru E1200",
+      "Samsung Guru Music 2 B310E",
+      "Samsung Metro 360",
+      "Samsung Metro B350E",
+      "Samsung B313E",
+      "Samsung B310E",
+      "Samsung GT-E1205",
+      "Samsung GT-E2202"
+    ],
+    "Motorola": [
+      "Motorola StarTAC 130",
+      "Motorola MicroTAC 7200",
+      "Motorola V3 RAZR",
+      "Motorola V3i",
+      "Motorola V3x",
+      "Motorola V6 MAXX",
+      "Motorola W220",
+      "Motorola W230",
+      "Motorola W375",
+      "Motorola W510",
+      "Motorola L6",
+      "Motorola L7",
+      "Motorola C115",
+      "Motorola C139",
+      "Motorola C168",
+      "Motorola C200",
+      "Motorola C261",
+      "Motorola C350",
+      "Motorola C380",
+      "Motorola C650",
+      "Motorola F3",
+      "Motorola WX160",
+      "Motorola EX112",
+      "Motorola EX115",
+      "Motorola ROKR E1",
+      "Motorola RAZR V3xx"
+    ],
+    "Alcatel": [
+      "Alcatel One Touch Easy",
+      "Alcatel OT 301",
+      "Alcatel OT 320",
+      "Alcatel OT 331",
+      "Alcatel OT 332",
+      "Alcatel OT 511",
+      "Alcatel OT 512",
+      "Alcatel OT 525",
+      "Alcatel OT 531",
+      "Alcatel OT 535",
+      "Alcatel OT 735",
+      "Alcatel OT 756",
+      "Alcatel OT 808",
+      "Alcatel OT 1035D",
+      "Alcatel 1016D",
+      "Alcatel 1018D",
+      "Alcatel 2003D",
+      "Alcatel 2051D",
+      "Alcatel 3088",
+      "Alcatel 1066D",
+      "Alcatel 1054D"
+    ],
+    "Siemens": [
+      "Siemens C25",
+      "Siemens C35",
+      "Siemens C45",
+      "Siemens A50",
+      "Siemens A52",
+      "Siemens A55",
+      "Siemens A57",
+      "Siemens A60",
+      "Siemens A65",
+      "Siemens A70",
+      "Siemens A75",
+      "Siemens M35",
+      "Siemens M50",
+      "Siemens ME45",
+      "Siemens S25",
+      "Siemens S35i",
+      "Siemens S45",
+      "Siemens SL45",
+      "Siemens SL55",
+      "Siemens MC60",
+      "Siemens CX65",
+      "Siemens M65",
+      "Siemens C65",
+      "Siemens C75",
+      "Siemens CF75",
+      "Siemens SX1"
+    ],
+    "Sony Ericsson": [
+      "Sony Ericsson T10",
+      "Sony Ericsson T18",
+      "Sony Ericsson T28",
+      "Sony Ericsson T29",
+      "Sony Ericsson T39",
+      "Sony Ericsson T610",
+      "Sony Ericsson T630",
+      "Sony Ericsson K300i",
+      "Sony Ericsson K500i",
+      "Sony Ericsson K700i",
+      "Sony Ericsson K750i",
+      "Sony Ericsson K800i",
+      "Sony Ericsson W200i",
+      "Sony Ericsson W300i",
+      "Sony Ericsson W550i",
+      "Sony Ericsson W580i",
+      "Sony Ericsson W810i",
+      "Sony Ericsson W880i",
+      "Sony Ericsson J100i",
+      "Sony Ericsson J110i",
+      "Sony Ericsson J220i",
+      "Sony Ericsson Z520i",
+      "Sony Ericsson Z610i",
+      "Sony Ericsson P990i"
+    ],
+    "LG": [
+      "LG KG800 Chocolate",
+      "LG KP100",
+      "LG KP110",
+      "LG KP500",
+      "LG GB102",
+      "LG GB106",
+      "LG GS101",
+      "LG A100",
+      "LG A120",
+      "LG B200",
+      "LG B220",
+      "LG B2100",
+      "LG C1100",
+      "LG C3300",
+      "LG G1500",
+      "LG GX200",
+      "LG GU200",
+      "LG L1100",
+      "LG L3",
+      "LG Wine Smart H410"
+    ],
+    "Philips": [
+      "Philips Savvy",
+      "Philips Xenium 9@9",
+      "Philips Xenium X100",
+      "Philips Xenium X125",
+      "Philips Xenium X1560",
+      "Philips E103",
+      "Philips E106",
+      "Philips E160",
+      "Philips E181",
+      "Philips E202",
+      "Philips Xenium E109"
+    ],
+    "Panasonic": [
+      "Panasonic GD30",
+      "Panasonic GD50",
+      "Panasonic GD55",
+      "Panasonic GD67",
+      "Panasonic GD75",
+      "Panasonic GD87",
+      "Panasonic X70",
+      "Panasonic X400",
+      "Panasonic VS3",
+      "Panasonic VS6",
+      "Panasonic KX-TU400",
+      "Panasonic KX-TU150"
+    ],
+    "BlackBerry": [
+      "BlackBerry 6210",
+      "BlackBerry 7290",
+      "BlackBerry 8700",
+      "BlackBerry 8800",
+      "BlackBerry Curve 8520",
+      "BlackBerry Curve 9300",
+      "BlackBerry Bold 9000",
+      "BlackBerry Bold 9700",
+      "BlackBerry Bold 9900",
+      "BlackBerry Pearl 8100",
+      "BlackBerry Pearl 9100",
+      "BlackBerry Q5",
+      "BlackBerry Q10",
+      "BlackBerry Classic Q20",
+      "BlackBerry Passport"
+    ],
+    "BenQ-Siemens": [
+      "BenQ-Siemens A31",
+      "BenQ-Siemens A38",
+      "BenQ-Siemens C81",
+      "BenQ-Siemens E61",
+      "BenQ-Siemens EF51",
+      "BenQ-Siemens EF81",
+      "BenQ-Siemens S68"
+    ],
+    "Sagem": [
+      "Sagem MC 920",
+      "Sagem MC 939",
+      "Sagem MC 959",
+      "Sagem MC 930",
+      "Sagem MY X-2",
+      "Sagem MY C-3",
+      "Sagem MY V-55",
+      "Sagem VS2",
+      "Sagem VS3",
+      "Sagem my401X",
+      "Sagem my501C"
+    ],
+    "Ericsson": [
+      "Ericsson GH 198",
+      "Ericsson GH 337",
+      "Ericsson GH 388",
+      "Ericsson GA 628",
+      "Ericsson GF 768",
+      "Ericsson T10s",
+      "Ericsson T18s",
+      "Ericsson T20s",
+      "Ericsson T28s",
+      "Ericsson R320s",
+      "Ericsson R310s",
+      "Ericsson R520m"
+    ],
+    "Sharp": [
+      "Sharp GX10",
+      "Sharp GX15",
+      "Sharp GX20",
+      "Sharp 550SH",
+      "Sharp 770SH",
+      "Sharp 902SH",
+      "Sharp 903SH",
+      "Sharp SH-01J",
+      "Sharp Aquos K SHF31"
+    ],
+    "Kyocera": [
+      "Kyocera DuraXV",
+      "Kyocera DuraXV LTE",
+      "Kyocera DuraXE",
+      "Kyocera Cadence S2720",
+      "Kyocera JAX S1300",
+      "Kyocera KX1",
+      "Kyocera KX2"
+    ],
+    "NEC": [
+      "NEC e616",
+      "NEC e808",
+      "NEC N341i",
+      "NEC N223i",
+      "NEC N22i",
+      "NEC N500i"
+    ],
+    "Fujitsu": [
+      "Fujitsu F-01E",
+      "Fujitsu F-07F",
+      "Fujitsu F-03L",
+      "Fujitsu F-41C",
+      "Fujitsu Raku-Raku Phone 7"
+    ],
+    "Casio": [
+      "Casio G'zOne Type-X",
+      "Casio G'zOne CA-201L",
+      "Casio A5403CA",
+      "Casio W21CA"
+    ],
+    "Toshiba": [
+      "Toshiba TS10",
+      "Toshiba TS605",
+      "Toshiba TS808",
+      "Toshiba Portege G500"
+    ],
+    "Haier": [
+      "Haier C200",
+      "Haier D600",
+      "Haier M1000",
+      "Haier HG-A60"
+    ],
+    "Maxon": [
+      "Maxon MX-3204",
+      "Maxon MX-7920",
+      "Maxon MX-6810",
+      "Maxon MX-7922"
+    ],
+    "Sendo": [
+      "Sendo S200",
+      "Sendo S300",
+      "Sendo X",
+      "Sendo M550"
+    ],
+    "Benefon": [
+      "Benefon Dragon",
+      "Benefon Esc!",
+      "Benefon Q",
+      "Benefon Twin"
+    ],
+    "Bosch": [
+      "Bosch Com 607",
+      "Bosch Com 608",
+      "Bosch Com 738",
+      "Bosch 509e"
+    ],
+    "AEG": [
+      "AEG D 5000",
+      "AEG M 500"
+    ],
+    "Sanyo": [
+      "Sanyo SCP-200",
+      "Sanyo SCP-2700",
+      "Sanyo J-SA03",
+      "Sanyo Katana"
+    ],
+    "Pantech": [
+      "Pantech PG-3200",
+      "Pantech C3",
+      "Pantech Breeze",
+      "Pantech Jest",
+      "Pantech Link"
+    ],
+    "HTC": [
+      "HTC S710",
+      "HTC S620",
+      "HTC TyTN II",
+      "HTC Touch Pro",
+      "HTC Snap"
+    ],
+    "Vertu": [
+      "Vertu Signature",
+      "Vertu Ascent",
+      "Vertu Constellation",
+      "Vertu Signature S"
+    ],
+    "Emporia": [
+      "emporia TALK",
+      "emporia PURE",
+      "emporia EUPHORIA",
+      "emporia SMART.5 mini",
+      "emporia TOUCHsmart.2"
+    ],
+    "Doro": [
+      "Doro PhoneEasy 410gsm",
+      "Doro PhoneEasy 515",
+      "Doro PhoneEasy 612",
+      "Doro 1360",
+      "Doro 2424",
+      "Doro 7030",
+      "Doro 7080"
+    ],
+    "Maxcom": [
+      "Maxcom MM141",
+      "Maxcom MM428",
+      "Maxcom MM462",
+      "Maxcom MM720",
+      "Maxcom Comfort MM724"
+    ],
+    "Sonim": [
+      "Sonim XP1",
+      "Sonim XP3",
+      "Sonim XP3.20",
+      "Sonim XP5",
+      "Sonim XP5s",
+      "Sonim XP3plus"
+    ],
+    "CAT": [
+      "CAT B25",
+      "CAT B30",
+      "CAT B35",
+      "CAT B40",
+      "CAT B26"
+    ],
+    "BLU": [
+      "BLU Tank T190",
+      "BLU Jenny II",
+      "BLU Diva Flex 2.4",
+      "BLU Z5",
+      "BLU Zoey 2.4"
+    ],
+    "Lava": [
+      "Lava A1",
+      "Lava A3",
+      "Lava A5",
+      "Lava KKT 34+",
+      "Lava Hero 600+",
+      "Lava Hero 1800"
+    ],
+    "Micromax": [
+      "Micromax X1i",
+      "Micromax X2i",
+      "Micromax X245",
+      "Micromax X406",
+      "Micromax X605",
+      "Micromax Joy  X1800"
+    ],
+    "Spice": [
+      "Spice M-4580",
+      "Spice M-5010",
+      "Spice M-5350",
+      "Spice Boss M-5000"
+    ],
+    "Karbonn": [
+      "Karbonn K9",
+      "Karbonn K9 Smart",
+      "Karbonn KX3",
+      "Karbonn K140 Pop"
+    ],
+    "Celkon": [
+      "Celkon C9",
+      "Celkon C44",
+      "Celkon C770",
+      "Celkon C5"
+    ],
+    "QMobile": [
+      "QMobile E4",
+      "QMobile E5",
+      "QMobile E6",
+      "QMobile Eco 4"
+    ],
+    "GFive": [
+      "GFive U505",
+      "GFive President G6",
+      "GFive U800"
+    ],
+    "Symphony": [
+      "Symphony B10",
+      "Symphony B12",
+      "Symphony L25",
+      "Symphony L26"
+    ],
+    "Walton": [
+      "Walton Olvio L10",
+      "Walton Olvio L15",
+      "Walton Olvio MM17"
+    ],
+    "myPhone": [
+      "myPhone 3310",
+      "myPhone 3210",
+      "myPhone 3330",
+      "myPhone Halo 2"
+    ],
+    "Fly": [
+      "Fly DS100",
+      "Fly DS105",
+      "Fly Ezzy 5",
+      "Fly FF245",
+      "Fly TS100"
+    ],
+    "ZTE": [
+      "ZTE F160",
+      "ZTE F103",
+      "ZTE R221",
+      "ZTE S130",
+      "ZTE S165",
+      "ZTE R230",
+      "ZTE F327"
+    ],
+    "Huawei": [
+      "Huawei G6600",
+      "Huawei G3610",
+      "Huawei G6005",
+      "Huawei G5000",
+      "Huawei U121",
+      "Huawei U2800"
+    ],
+    "Alcatel-Lucent": [
+      "Alcatel-Lucent OT 735",
+      "Alcatel-Lucent OT 756"
+    ],
+    "Trium": [
+      "Trium Mars",
+      "Trium Astral",
+      "Trium Aria",
+      "Trium Geo"
+    ],
+    "Telit": [
+      "Telit GM 882",
+      "Telit G40",
+      "Telit SP600"
+    ],
+    "Blaupunkt": [
+      "Blaupunkt FM 01",
+      "Blaupunkt FS 04"
+    ],
+    "AEG Telecom": [
+      "AEG Telecom D 5000"
+    ],
+    "Orbic": [
+      "Orbic Journey V",
+      "Orbic Journey"
+    ],
+    "RugGear": [
+      "RugGear RG150",
+      "RugGear RG160"
+    ],
+    "Crosscall": [
+      "Crosscall Spider-X1",
+      "Crosscall Core-S4"
+    ],
+    "Ulefone": [
+      "Ulefone Armor Mini",
+      "Ulefone Armor Mini 2",
+      "Ulefone Armor Mini 3"
     ]
   }
 }
