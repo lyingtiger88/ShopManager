@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
     private SharedPreferences prefs;
+    private LocalDatabase localDb;
     private LinearLayout root, body;
     private TextView status;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -35,8 +36,9 @@ public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         prefs = getSharedPreferences("shopmanager_sync", MODE_PRIVATE);
-        try { pending = new JSONArray(prefs.getString("pending", "[]")); } catch(Exception ignored) {}
-        try { snapshot = new JSONObject(prefs.getString("snapshot", "{}")); } catch(Exception ignored) {}
+        localDb = new LocalDatabase(this);
+        pending = localDb.loadArray("pending", "[]");
+        snapshot = localDb.loadObject("snapshot", "{}");
         try (InputStream in=getAssets().open("device_catalog.json")) {
             ByteArrayOutputStream out=new ByteArrayOutputStream(); byte[] buf=new byte[4096]; int n;
             while((n=in.read(buf))!=-1)out.write(buf,0,n);
@@ -103,8 +105,8 @@ public final class MainActivity extends Activity {
                 " | اطلاعات دریافت‌شده: " + (knownJobs == null ? 0 : knownJobs.length()) + " پرونده");
     }
     private void save() {
-        prefs.edit().putString("pending",pending.toString())
-                .putString("snapshot",snapshot.toString()).apply();
+        localDb.replacePending(pending);
+        localDb.saveSnapshot(snapshot);
         status();
     }
     private void toast(String text) { Toast.makeText(this,text,Toast.LENGTH_LONG).show(); }
@@ -439,5 +441,5 @@ public final class MainActivity extends Activity {
             }
         });
     }
-    @Override protected void onDestroy(){executor.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){executor.shutdown();localDb.close();super.onDestroy();}
 }
