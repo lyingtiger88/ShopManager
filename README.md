@@ -53,7 +53,7 @@ No license has been selected yet.
 
 ## فایل اجرایی ویندوز (EXE)
 
-در صفحه [GitHub Actions](https://github.com/lyingtiger88/ShopManager/actions/workflows/build-windows.yml)، اجرای موفق **Build Windows EXE** را باز کنید. از قسمت **Artifacts** فایل **ShopManager-Windows** را دانلود و از حالت ZIP خارج کنید؛ داخل آن `ShopManager.exe` است. در صورت نیاز دکمه **Run workflow** را بزنید. فعال بودن GitHub Actions در تنظیمات ریپو ضروری است.
+در صفحه [GitHub Actions](https://github.com/lyingtiger88/ShopManager/actions/workflows/android.yml)، اجرای موفق **Build Windows EXE** را باز کنید. از قسمت **Artifacts** فایل **ShopManager-Windows** را دانلود و از حالت ZIP خارج کنید؛ داخل آن `ShopManager.exe` است. در صورت نیاز دکمه **Run workflow** را بزنید. فعال بودن GitHub Actions در تنظیمات ریپو ضروری است.
 
 ## کد سفارش
 
