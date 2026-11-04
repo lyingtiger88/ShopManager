@@ -2,7 +2,7 @@ name: Build ShopManager - Windows + Android
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'feature/**']
   workflow_dispatch:
 
 permissions:
