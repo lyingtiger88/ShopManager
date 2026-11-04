@@ -25,12 +25,12 @@ public final class LocalDatabase extends SQLiteOpenHelper {
     public synchronized JSONObject loadObject(String key, String fallback) {
         try (Cursor c=getReadableDatabase().rawQuery("SELECT value FROM state WHERE key=?",new String[]{key})) {
             return c.moveToFirst()?new JSONObject(c.getString(0)):new JSONObject(fallback);
-        } catch(Exception e) { return new JSONObject(fallback); }
+        } catch(Exception e) { return new JSONObject(); }
     }
     public synchronized JSONArray loadArray(String key, String fallback) {
         try (Cursor c=getReadableDatabase().rawQuery("SELECT value FROM state WHERE key=?",new String[]{key})) {
             return c.moveToFirst()?new JSONArray(c.getString(0)):new JSONArray(fallback);
-        } catch(Exception e) { return new JSONArray(fallback); }
+        } catch(Exception e) { return new JSONArray(); }
     }
     public synchronized void saveState(String key, String value) {
         ContentValues v=new ContentValues(); v.put("key",key); v.put("value",value);
