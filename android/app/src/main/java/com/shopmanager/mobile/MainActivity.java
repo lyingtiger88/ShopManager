@@ -517,6 +517,16 @@ public final class MainActivity extends Activity {
         return pdf.getAbsolutePath();
     }
 
+    private String readableList(String raw) {
+        try {
+            JSONArray values=new JSONArray(raw);
+            ArrayList<String> items=new ArrayList<>();
+            for(int i=0;i<values.length();i++)items.add(values.optString(i));
+            return items.isEmpty()?"موردی ثبت نشده":android.text.TextUtils.join("، ",items);
+        } catch(Exception ignored) {
+            return raw==null||raw.isEmpty()?"موردی ثبت نشده":raw;
+        }
+    }
     private void jobsPage() {
         reset("پرونده‌های مشترک");
         JSONArray jobs=snapshot.optJSONArray("jobs");
@@ -525,7 +535,8 @@ public final class MainActivity extends Activity {
             body.addView(text(j.optString("order_code")+" | "+j.optString("customer_name")
                 +" | "+j.optString("device")+" | "+j.optString("status")
                 +"\nوضعیت هنگام تحویل: "+j.optString("power_state")
-                +"\nوضعیت فیزیکی: "+j.optString("physical_condition")
+                +"\nوضعیت فیزیکی: "+readableList(j.optString("physical_condition"))
+                +"\nموارد عیب و عملکرد: "+readableList(j.optString("intake_checks"))
                 +"\nعیب مشتری: "+j.optString("problem")
                 +"\nتشخیص: "+j.optString("diagnosed_fault")
                 +"\nدستمزد: "+j.optLong("labor")+" تومان"));
