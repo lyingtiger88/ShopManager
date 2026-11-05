@@ -469,14 +469,21 @@ class App(tk.Tk):
             messagebox.showerror("خطا", str(ex))
 
     def make_customers(self):
-        bar = ttk.Frame(self.ctab)
-        bar.pack(fill="x", pady=12)
+        required = ttk.LabelFrame(self.ctab, text="پروفایل مشتری | فیلدهای ستاره‌دار اجباری هستند")
+        required.pack(fill="x", padx=10, pady=(12, 5))
         self.customer_fields = []
-        for label in ("نام", "نام خانوادگی", "شماره تماس", "آدرس (اختیاری)", "توضیحات (اختیاری)"):
-            frame, field = self.label_entry(bar, label, 17)
-            frame.pack(side="right", padx=4)
+        for label in ("نام *", "نام خانوادگی *", "شماره تماس *"):
+            frame, field = self.label_entry(required, label, 22)
+            frame.pack(side="right", padx=8, pady=8)
             self.customer_fields.append(field)
-        ttk.Button(bar, text="ثبت مشتری", command=lambda: self.perform(self.new_customer)).pack(side="right", padx=10)
+        optional = ttk.LabelFrame(self.ctab, text="اطلاعات تکمیلی | اختیاری")
+        optional.pack(fill="x", padx=10, pady=5)
+        for label in ("آدرس محل سکونت", "یادداشت"):
+            frame, field = self.label_entry(optional, label, 28)
+            frame.pack(side="right", padx=8, pady=8)
+            self.customer_fields.append(field)
+        ttk.Button(optional, text="ثبت پروفایل مشتری",
+                   command=lambda: self.perform(self.new_customer)).pack(side="right", padx=12, pady=8)
         self.customer_tree = self.table(self.ctab, ("id", "first_name", "last_name", "phone", "address", "notes"),
                                         ("کد", "نام", "نام خانوادگی", "شماره تماس", "آدرس", "یادداشت"))
 
