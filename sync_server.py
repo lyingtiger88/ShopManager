@@ -167,7 +167,15 @@ class Handler(BaseHTTPRequestHandler):
             op = json.loads(self.rfile.read(size).decode("utf-8"))
             if not isinstance(op, dict):
                 raise ValueError("اطلاعات درخواست معتبر نیست")
-            self.respond(200, {"ok": True, "result": apply_operation(op)})
+            result = apply_operation(op)
+            if op.get("kind") == "job" and not result.get("duplicate"):
+                try:
+                    from shopmanager import export_intake_report
+                    export_intake_report(result["id"], open_pdf=False)
+                except Exception:
+                    # A report-rendering problem must never undo an already accepted repair.
+                    pass
+            self.respond(200, {"ok": True, "result": result})
         except (ValueError, json.JSONDecodeError) as exc:
             self.respond(400, {"ok": False, "error": str(exc)})
         except Exception:
