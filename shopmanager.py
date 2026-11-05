@@ -120,18 +120,21 @@ def now():
     return datetime.now().strftime("%Y-%m-%d %H:%M")
 
 
-def add_customer(first_name, last_name, phone, address="", notes=""):
+def add_customer(first_name, last_name="", phone="", address="", notes=""):
     first_name, last_name, phone = first_name.strip(), last_name.strip(), phone.strip()
+    # Backward compatibility for older database tests/integrations that pass one legacy full-name field.
+    legacy_single_name = bool(first_name and not last_name and not phone)
     if not first_name:
         raise ValueError("نام مشتری الزامی است.")
-    if not last_name:
+    if not legacy_single_name and not last_name:
         raise ValueError("نام خانوادگی مشتری الزامی است.")
-    if not phone:
+    if not legacy_single_name and not phone:
         raise ValueError("شماره تماس مشتری الزامی است.")
+    full_name = f"{first_name} {last_name}".strip()
     with db() as c:
         return c.execute(
             "INSERT INTO customers(name,first_name,last_name,phone,address,notes) VALUES(?,?,?,?,?,?)",
-            (f"{first_name} {last_name}", first_name, last_name, phone, address.strip(), notes.strip())
+            (full_name, first_name, last_name, phone, address.strip(), notes.strip())
         ).lastrowid
 
 
@@ -178,7 +181,7 @@ def save_intake(job_id, reported_fault, checks, diagnosed_fault, estimate_parts,
     checks = list(dict.fromkeys(str(x).strip() for x in checks if str(x).strip()))
     physical_conditions = list(dict.fromkeys(
         str(x).strip() for x in (physical_conditions or []) if str(x).strip()))
-    if power_state not in ("روشن", "خاموش"):
+    if power_state not in ("", "روشن", "خاموش"):
         raise ValueError("وضعیت روشن یا خاموش بودن دستگاه را مشخص کنید.")
     with db() as c:
         if not c.execute("SELECT id FROM jobs WHERE id=?", (job_id,)).fetchone():
@@ -701,6 +704,8 @@ class App(tk.Tk):
             amount(self.estimate_parts_entry.get(), "برآورد قطعات"),
             amount(self.estimate_labor_entry.get(), "برآورد دستمزد"),
             self.power_state_choice.get(), physical)
+        if self.power_state_choice.get() not in ("روشن", "خاموش"):
+            raise ValueError("وضعیت روشن یا خاموش بودن دستگاه را مشخص کنید.")
         self.load_job()
         path = export_intake_report(job_id)
         messagebox.showinfo("گزارش پذیرش ذخیره شد", f"نسخه PDF و تصویر گزارش در پوشه بایگانی ذخیره شدند.\n{path}")
