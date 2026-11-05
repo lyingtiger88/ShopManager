@@ -53,12 +53,19 @@ def apply_operation(op):
             row = c.execute("SELECT id FROM customers WHERE client_ref=?", (ref,)).fetchone()
             if row:
                 return {"id": row["id"], "duplicate": True}
-            name = valid_text(op.get("name"), 150)
-            if not name:
-                raise ValueError("نام مشتری لازم است")
-            cur = c.execute("INSERT INTO customers(name,phone,address,client_ref) VALUES(?,?,?,?)",
-                            (name, valid_text(op.get("phone"), 40),
-                             valid_text(op.get("address"), 300), ref))
+            first_name = valid_text(op.get("first_name"), 75)
+            last_name = valid_text(op.get("last_name"), 75)
+            phone = valid_text(op.get("phone"), 40)
+            if not first_name or not last_name or not phone:
+                # Legacy Android clients sent one full-name field. Keep them importable.
+                legacy_name = valid_text(op.get("name"), 150)
+                if not (legacy_name and phone):
+                    raise ValueError("نام، نام خانوادگی و شماره تماس مشتری الزامی است")
+                first_name, last_name = legacy_name, ""
+            name = f"{first_name} {last_name}".strip()
+            cur = c.execute(
+                "INSERT INTO customers(name,first_name,last_name,phone,address,client_ref) VALUES(?,?,?,?,?,?)",
+                (name, first_name, last_name, phone, valid_text(op.get("address"), 300), ref))
             return {"id": cur.lastrowid, "duplicate": False}
         if kind == "job":
             row = c.execute("SELECT id,order_code FROM jobs WHERE client_ref=?", (ref,)).fetchone()
@@ -80,14 +87,22 @@ def apply_operation(op):
             checks = [valid_text(x, 100) for x in checks]
             estimate_parts = max(0, int(op.get("estimate_parts", 0)))
             estimate_labor = max(0, int(op.get("estimate_labor", 0)))
+            power_state = valid_text(op.get("power_state"), 10)
+            if power_state not in ("روشن", "خاموش"):
+                raise ValueError("وضعیت روشن یا خاموش بودن دستگاه مشخص نشده است")
+            physical = op.get("physical_conditions", [])
+            if not isinstance(physical, list) or len(physical) > 40:
+                raise ValueError("فهرست وضعیت فیزیکی معتبر نیست")
+            physical = [valid_text(x, 120) for x in physical]
             cur = c.execute("""INSERT INTO jobs(customer_id,client_ref,device,problem,intake_checks,
-                               diagnosed_fault,estimate_parts,estimate_labor,created_at)
-                               VALUES(?,?,?,?,?,?,?,?,?)""",
+                               diagnosed_fault,estimate_parts,estimate_labor,power_state,physical_condition,created_at)
+                               VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
                             (customer["id"], ref, valid_text(op.get("device"), 150),
                              valid_text(op.get("reported"), 700),
                              json.dumps(checks, ensure_ascii=False),
                              valid_text(op.get("diagnosis"), 700),
-                             estimate_parts, estimate_labor, now()))
+                             estimate_parts, estimate_labor, power_state,
+                             json.dumps(physical, ensure_ascii=False), now()))
             job_id = cur.lastrowid
             code = f"SM-{now()[:4]}-{job_id:06d}"
             c.execute("UPDATE jobs SET order_code=? WHERE id=?", (code, job_id))
@@ -100,13 +115,15 @@ def apply_operation(op):
 def snapshot():
     with db() as c:
         customers = [dict(x) for x in c.execute(
-            "SELECT id,name,phone,address,client_ref FROM customers ORDER BY id DESC LIMIT 1000")]
+            "SELECT id,name,first_name,last_name,phone,address,client_ref FROM customers ORDER BY id DESC LIMIT 1000")]
         items = [dict(x) for x in c.execute(
             "SELECT id,sku,name,qty,price FROM items ORDER BY id DESC LIMIT 1000")]
         jobs = [dict(x) for x in c.execute(
             """SELECT j.id,j.order_code,j.client_ref,j.device,j.problem,j.intake_checks,
-                      j.diagnosed_fault,j.estimate_parts,j.estimate_labor,j.labor,j.discount,j.paid,j.status,j.customer_id,
-                      c.name AS customer_name FROM jobs j JOIN customers c ON c.id=j.customer_id
+                      j.diagnosed_fault,j.estimate_parts,j.estimate_labor,j.power_state,j.physical_condition,
+                      j.labor,j.discount,j.paid,j.status,j.customer_id,
+                      c.name AS customer_name,c.first_name,c.last_name,c.phone,c.address
+                      FROM jobs j JOIN customers c ON c.id=j.customer_id
                ORDER BY j.id DESC LIMIT 1000""")]
     return {"role": "master", "customers": customers, "items": items, "jobs": jobs}
 
