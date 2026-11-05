@@ -726,8 +726,12 @@ class App(tk.Tk):
             amount(self.estimate_labor_entry.get(), "برآورد دستمزد"),
             self.power_state_choice.get(), physical)
         self.load_job()
-        path = export_intake_report(job_id)
-        messagebox.showinfo("گزارش پذیرش ذخیره شد", f"نسخه PDF و تصویر گزارش در پوشه بایگانی ذخیره شدند.\n{path}")
+        try:
+            path = export_intake_report(job_id)
+            messagebox.showinfo("گزارش پذیرش ذخیره شد",
+                                f"نسخه PDF و تصویر گزارش در پوشه بایگانی ذخیره شدند.\n{path}")
+        except Exception as exc:
+            messagebox.showerror("خطا در ساخت گزارش", str(exc))
 
     def load_device_catalog(self):
         try:
