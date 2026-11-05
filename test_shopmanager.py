@@ -70,6 +70,8 @@ class InventoryCartTests(unittest.TestCase):
             "خرابی سوکت شارژ",
             250000,
             150000,
+            "خاموش",
+            ["شکستگی قاب", "باتری مفقود"],
         )
         row, _, _, _, _ = app.job_summary(self.job)
         self.assertEqual(row["problem"], "شارژ نمی‌شود")
@@ -77,6 +79,8 @@ class InventoryCartTests(unittest.TestCase):
         self.assertEqual(row["estimate_parts"], 250000)
         self.assertEqual(row["estimate_labor"], 150000)
         self.assertIn("شکستگی نمایشگر", row["intake_checks"])
+        self.assertEqual(row["power_state"], "خاموش")
+        self.assertIn("باتری مفقود", row["physical_condition"])
 
 
     def test_android_entries_are_idempotent(self):
