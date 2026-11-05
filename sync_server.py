@@ -87,9 +87,9 @@ def apply_operation(op):
             checks = [valid_text(x, 100) for x in checks]
             estimate_parts = max(0, int(op.get("estimate_parts", 0)))
             estimate_labor = max(0, int(op.get("estimate_labor", 0)))
-            power_state = valid_text(op.get("power_state"), 10)
-            if power_state not in ("روشن", "خاموش"):
-                raise ValueError("وضعیت روشن یا خاموش بودن دستگاه مشخص نشده است")
+            power_state = valid_text(op.get("power_state"), 10) or "ثبت نشده"
+            if power_state not in ("روشن", "خاموش", "ثبت نشده"):
+                raise ValueError("وضعیت روشن یا خاموش بودن دستگاه معتبر نیست")
             physical = op.get("physical_conditions", [])
             if not isinstance(physical, list) or len(physical) > 40:
                 raise ValueError("فهرست وضعیت فیزیکی معتبر نیست")
