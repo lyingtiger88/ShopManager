@@ -5,6 +5,8 @@ import android.app.AlertDialog;
 import android.os.Bundle;
 import android.content.SharedPreferences;
 import android.graphics.Typeface;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.view.View;
 import android.widget.*;
 import org.json.JSONArray;
@@ -24,6 +26,7 @@ public final class MainActivity extends Activity {
     private SharedPreferences prefs;
     private LinearLayout root, body;
     private TextView status;
+    private int navy=Color.rgb(13,27,49), blue=Color.rgb(24,91,190), pale=Color.rgb(241,245,251), ink=Color.rgb(25,39,58);
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private JSONObject snapshot = new JSONObject();
     private JSONArray pending = new JSONArray();
@@ -42,37 +45,42 @@ public final class MainActivity extends Activity {
             while((n=in.read(buf))!=-1)out.write(buf,0,n);
             deviceCatalog=new JSONObject(out.toString("UTF-8"));
         } catch(Exception ignored) {}
+        getWindow().setStatusBarColor(navy);
+        getWindow().setNavigationBarColor(navy);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(16, 20, 16, 12);
+        root.setPadding(14,12,14,8);
+        root.setBackgroundColor(pale);
         root.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         setContentView(root);
-        TextView title = text("ShopManager | ثبت‌کننده ثانویه");
-        title.setTextSize(20);
-        title.setTypeface(null, Typeface.BOLD);
-        root.addView(title);
-        status = text("");
-        root.addView(status);
-        LinearLayout nav = new LinearLayout(this);
-        nav.setOrientation(LinearLayout.HORIZONTAL);
-        root.addView(nav);
-        tab(nav,"اتصال", () -> connectionPage());
-        tab(nav,"مشتریان", () -> customersPage());
-        tab(nav,"پذیرش", () -> intakePage());
-        tab(nav,"پرونده‌ها", () -> jobsPage());
-        ScrollView scroll = new ScrollView(this);
-        root.addView(scroll, new LinearLayout.LayoutParams(-1,0,1));
-        body = new LinearLayout(this);
-        body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(4,8,4,8);
-        scroll.addView(body);
+        LinearLayout header=new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        header.setPadding(14,12,14,12);
+        header.setBackground(round(navy,18));
+        root.addView(header,new LinearLayout.LayoutParams(-1,-2));
+        TextView brand=text("ShopManager");
+        brand.setTextColor(Color.WHITE);brand.setTextSize(21);brand.setTypeface(null,Typeface.BOLD);
+        header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
+        TextView role=text("مدیریت تعمیرگاه");
+        role.setTextColor(Color.rgb(194,211,235));role.setTextSize(11);header.addView(role);
+        status=text("");status.setTextColor(ink);status.setTextSize(12);root.addView(status);
+        ScrollView scroll=new ScrollView(this);
+        root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(2,8,2,12);scroll.addView(body);
+        LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);
+        nav.setPadding(4,6,4,6);nav.setBackground(round(Color.WHITE,18));
+        root.addView(nav,new LinearLayout.LayoutParams(-1,-2));
+        tab(nav,"خانه",()->homePage());tab(nav,"پذیرش",()->intakePage());
+        tab(nav,"پرونده‌ها",()->jobsPage());tab(nav,"انبار",()->inventoryPage());
+        tab(nav,"اتصال",()->connectionPage());
         status();
-        connectionPage();
+        homePage();
         if(!url().isEmpty() && !key().isEmpty()) synchronize();
     }
     private TextView text(String content) {
         TextView t = new TextView(this);
-        t.setText(content); t.setTextSize(15); t.setPadding(6,8,6,8);
+        t.setText(content); t.setTextSize(14); t.setTextColor(ink); t.setPadding(8,9,8,9);
         t.setTextDirection(View.TEXT_DIRECTION_RTL);
         return t;
     }
@@ -84,17 +92,17 @@ public final class MainActivity extends Activity {
         return e;
     }
     private void tab(LinearLayout container, String name, Runnable action) {
-        Button b = new Button(this); b.setText(name); b.setTextSize(11);
+        Button b = new Button(this); b.setText(name); b.setTextSize(10); b.setTextColor(blue); b.setAllCaps(false);
         container.addView(b, new LinearLayout.LayoutParams(0,-2,1));
         b.setOnClickListener(v -> action.run());
     }
     private void action(String name, Runnable run) {
-        Button b = new Button(this); b.setText(name); body.addView(b);
+        Button b = new Button(this); b.setText(name); b.setTextColor(Color.WHITE); b.setAllCaps(false); b.setBackground(round(blue,14)); b.setPadding(12,10,12,10); LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,-2);bp.setMargins(3,6,3,6);body.addView(b,bp);
         b.setOnClickListener(v -> run.run());
     }
     private void reset(String heading) {
         body.removeAllViews();
-        TextView t=text(heading); t.setTextSize(18); t.setTypeface(null, Typeface.BOLD);
+        TextView t=text(heading); t.setTextSize(19); t.setTextColor(navy); t.setTypeface(null, Typeface.BOLD);
         body.addView(t);
     }
     private void status() {
@@ -110,6 +118,39 @@ public final class MainActivity extends Activity {
     private void toast(String text) { Toast.makeText(this,text,Toast.LENGTH_LONG).show(); }
     private String url() { return prefs.getString("url","").trim().replaceAll("/+$",""); }
     private String key() { return prefs.getString("key","").trim(); }
+
+    private GradientDrawable round(int color,int radiusDp) {
+        GradientDrawable d=new GradientDrawable();d.setColor(color);
+        d.setCornerRadius(radiusDp*getResources().getDisplayMetrics().density);return d;
+    }
+    private void metricCard(String title,String value,int color) {
+        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(10,8,10,8);card.setBackground(round(Color.WHITE,16));
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-2,1);p.setMargins(3,3,3,3);
+        TextView v=text(value);v.setTextSize(22);v.setTextColor(color);v.setTypeface(null,Typeface.BOLD);
+        TextView t=text(title);t.setTextSize(11);card.addView(v);card.addView(t);body.addView(card,p);
+    }
+    private void homePage() {
+        reset("داشبورد مدیریت تعمیرگاه");
+        LinearLayout metrics=new LinearLayout(this);metrics.setOrientation(LinearLayout.HORIZONTAL);body.addView(metrics);
+        JSONArray jobs=snapshot.optJSONArray("jobs"), people=snapshot.optJSONArray("customers"), items=snapshot.optJSONArray("items");
+        metricCard("پرونده‌ها",String.valueOf(jobs==null?0:jobs.length()),blue);
+        metricCard("مشتریان",String.valueOf(people==null?0:people.length()),Color.rgb(28,150,104));
+        metricCard("اقلام انبار",String.valueOf(items==null?0:items.length()),Color.rgb(225,145,35));
+        TextView quick=text("عملیات سریع");quick.setTypeface(null,Typeface.BOLD);quick.setTextSize(17);body.addView(quick);
+        action("＋ پذیرش دستگاه جدید",this::intakePage);action("＋ ثبت مشتری جدید",this::customersPage);
+        action("▦ مشاهده پرونده‌ها",this::jobsPage);action("▣ مشاهده موجودی انبار",this::inventoryPage);
+        LinearLayout info=new LinearLayout(this);info.setOrientation(LinearLayout.VERTICAL);info.setPadding(12,10,12,10);info.setBackground(round(Color.WHITE,14));
+        info.addView(text("وضعیت همگام‌سازی"));info.addView(text("در انتظار ارسال: "+pending.length()+" مورد"));
+        info.addView(text("نقش این دستگاه: ثبت‌کننده ثانویه"));body.addView(info);
+        action("اتصال و همگام‌سازی با نسخه ویندوز",this::connectionPage);
+        TextView recent=text("آخرین پرونده‌ها");recent.setTextSize(17);recent.setTypeface(null,Typeface.BOLD);body.addView(recent);
+        if(jobs!=null)for(int i=Math.max(0,jobs.length()-5);i<jobs.length();i++){
+            JSONObject j=jobs.optJSONObject(i);if(j!=null){LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);
+                card.setPadding(10,8,10,8);card.setBackground(round(Color.WHITE,12));
+                card.addView(text(j.optString("order_code")+"  |  "+j.optString("customer_name")));
+                card.addView(text(j.optString("device")+"  |  "+j.optString("status")));body.addView(card);}
+        }
+    }
 
     private void connectionPage() {
         reset("اتصال به سیستم اصلی (ویندوز)");
