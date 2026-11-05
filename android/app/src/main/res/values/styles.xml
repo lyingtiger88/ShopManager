@@ -1,0 +1,12 @@
+<resources>
+    <style name="ShopManagerTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#185BBE</item>
+        <item name="colorPrimaryVariant">#0D1B31</item>
+        <item name="colorSecondary">#F4C76B</item>
+        <item name="android:statusBarColor">#0D1B31</item>
+        <item name="android:navigationBarColor">#0D1B31</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowBackground">#F1F5FB</item>
+    </style>
+</resources>
