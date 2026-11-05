@@ -296,9 +296,20 @@ class App(tk.Tk):
         style = ttk.Style(self)
         if "clam" in style.theme_names():
             style.theme_use("clam")
-        style.configure("Treeview", rowheight=29, font=("Tahoma", 10))
-        style.configure("TButton", padding=7, font=("Tahoma", 10))
-        style.configure("TLabel", font=("Tahoma", 10))
+        self.configure(bg="#0d1b31")
+        style.configure("Treeview", rowheight=32, font=("Tahoma", 10), background="#ffffff",
+                        fieldbackground="#ffffff", foreground="#19273a")
+        style.configure("Treeview.Heading", font=("Tahoma", 10, "bold"), background="#e8eef7")
+        style.configure("TButton", padding=8, font=("Tahoma", 10))
+        style.configure("TLabel", font=("Tahoma", 10), background="#f1f5fb", foreground="#19273a")
+        style.configure("TNotebook", background="#0d1b31", borderwidth=0)
+        style.configure("TNotebook.Tab", padding=(18, 10), font=("Tahoma", 10, "bold"))
+        header = tk.Frame(self, bg="#0d1b31", height=66)
+        header.pack(fill="x", padx=12, pady=(10, 0))
+        tk.Label(header, text="ShopManager", bg="#0d1b31", fg="#f4c76b",
+                 font=("Tahoma", 20, "bold")).pack(side="right", padx=14, pady=12)
+        tk.Label(header, text="مدیریت هوشمند فروشگاه و تعمیرگاه", bg="#0d1b31",
+                 fg="#c2d3eb", font=("Tahoma", 10)).pack(side="right", pady=18)
         tabs = ttk.Notebook(self)
         tabs.pack(fill="both", expand=True, padx=12, pady=12)
         self.ctab = ttk.Frame(tabs)
