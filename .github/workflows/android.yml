@@ -19,14 +19,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install PyInstaller
-        run: python -m pip install --upgrade pip pyinstaller
+      - name: Install application and report dependencies
+        run: python -m pip install --upgrade pip pyinstaller reportlab pillow arabic-reshaper python-bidi
       - name: Check Python syntax
         run: python -m py_compile shopmanager.py
       - name: Test inventory and invoice logic
         run: python -m unittest discover -p 'test_*.py' -v
       - name: Build single-file executable
-        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --add-data "device_catalog.json;." --name ShopManager shopmanager.py
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --hidden-import=arabic_reshaper --hidden-import=bidi.algorithm --hidden-import=PIL --add-data "device_catalog.json;." --name ShopManager shopmanager.py
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
