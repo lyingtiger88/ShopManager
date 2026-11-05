@@ -335,7 +335,8 @@ public final class MainActivity extends Activity {
         String[] physicalOptions={"شکستگی نمایشگر","ترک‌خوردگی قاب","شکستگی قاب/بدنه",
                 "آسیب‌دیدگی سوکت شارژ","آثار رطوبت یا آب‌خوردگی","خط‌وخش یا فرورفتگی",
                 "باتری مفقود","سیم‌کارت مفقود","کارت حافظه مفقود","خشاب سیم‌کارت مفقود",
-                "پیچ یا قطعه بدنه مفقود","سایر نقص‌ها"};
+                "درب پشت مفقود","درپوش باتری مفقود","شارژر مفقود","کابل USB مفقود",
+                "لوازم جانبی مفقود","قلم لمسی مفقود","پیچ یا قطعه بدنه مفقود","سایر نقص‌ها"};
         CheckBox[] physicalChecks=new CheckBox[physicalOptions.length];
         for(int i=0;i<physicalOptions.length;i++){
             physicalChecks[i]=new CheckBox(this);
