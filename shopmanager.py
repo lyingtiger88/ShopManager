@@ -88,7 +88,16 @@ def init_db():
         for column, definition in {"first_name": "TEXT DEFAULT ''", "last_name": "TEXT DEFAULT ''"}.items():
             if column not in customer_columns:
                 c.execute(f"ALTER TABLE customers ADD COLUMN {column} {definition}")
-        c.execute("UPDATE customers SET first_name=name WHERE COALESCE(first_name,'')='' AND COALESCE(last_name,'')=''")
+        legacy_customers = c.execute(
+            "SELECT id,name,first_name,last_name FROM customers WHERE COALESCE(last_name,'')=''"
+        ).fetchall()
+        for customer in legacy_customers:
+            if not customer["first_name"] or customer["first_name"] == customer["name"]:
+                parts = (customer["name"] or "").strip().split(maxsplit=1)
+                first = parts[0] if parts else ""
+                last = parts[1] if len(parts) > 1 else ""
+                c.execute("UPDATE customers SET first_name=?,last_name=? WHERE id=?",
+                          (first, last, customer["id"]))
         job_columns = {r["name"] for r in c.execute("PRAGMA table_info(jobs)")}
         if "client_ref" not in job_columns:
             c.execute("ALTER TABLE jobs ADD COLUMN client_ref TEXT")
