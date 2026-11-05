@@ -315,17 +315,6 @@ public final class MainActivity extends Activity {
             public void onNothingSelected(android.widget.AdapterView<?> p){}
             public void onItemSelected(android.widget.AdapterView<?> p,View v,int pos,long id){filterModels.run();}
         });
-        deviceType.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){
-            public void onNothingSelected(android.widget.AdapterView<?> p){}
-            public void onItemSelected(android.widget.AdapterView<?> p,View v,int pos,long id){
-                modelSearch.setText("");
-                customModel.setText("");
-                chosenBrand[0]="";
-                chosenModel[0]="";
-                selectedModel.setText("مدل انتخاب‌شده: هنوز انتخاب نشده");
-                refreshModels.run();
-            }
-        });
         modelSearch.addTextChangedListener(new android.text.TextWatcher(){
             public void beforeTextChanged(CharSequence a,int b,int c,int d){}
             public void onTextChanged(CharSequence a,int b,int c,int d){filterModels.run();}
@@ -384,6 +373,12 @@ public final class MainActivity extends Activity {
         deviceType.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){
             public void onNothingSelected(android.widget.AdapterView<?> p){}
             public void onItemSelected(android.widget.AdapterView<?> p,View v,int pos,long id){
+                modelSearch.setText("");
+                customModel.setText("");
+                chosenBrand[0]="";
+                chosenModel[0]="";
+                selectedModel.setText("مدل انتخاب‌شده: هنوز انتخاب نشده");
+                refreshModels.run();
                 boolean buttonFault=checkboxes[9]!=null&&checkboxes[9].isChecked();
                 keypadPanel.setVisibility(pos==1&&buttonFault?View.VISIBLE:View.GONE);
             }
