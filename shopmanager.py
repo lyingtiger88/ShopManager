@@ -54,7 +54,8 @@ def init_db():
     with db() as c:
         c.executescript("""
         CREATE TABLE IF NOT EXISTS customers(
-          id INTEGER PRIMARY KEY, name TEXT NOT NULL, phone TEXT DEFAULT '',
+          id INTEGER PRIMARY KEY, name TEXT NOT NULL, first_name TEXT DEFAULT '',
+          last_name TEXT DEFAULT '', phone TEXT DEFAULT '',
           address TEXT DEFAULT '', notes TEXT DEFAULT '', client_ref TEXT UNIQUE);
         CREATE TABLE IF NOT EXISTS items(
           id INTEGER PRIMARY KEY, sku TEXT UNIQUE, name TEXT NOT NULL,
@@ -68,7 +69,8 @@ def init_db():
           estimate_parts INTEGER NOT NULL DEFAULT 0, estimate_labor INTEGER NOT NULL DEFAULT 0,
           status TEXT NOT NULL DEFAULT 'در انتظار', labor INTEGER NOT NULL DEFAULT 0,
           discount INTEGER NOT NULL DEFAULT 0, paid INTEGER NOT NULL DEFAULT 0,
-          created_at TEXT NOT NULL, notes TEXT DEFAULT '');
+          created_at TEXT NOT NULL, notes TEXT DEFAULT '',
+          power_state TEXT NOT NULL DEFAULT '', physical_condition TEXT NOT NULL DEFAULT '[]');
         CREATE TABLE IF NOT EXISTS job_items(
           id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL REFERENCES jobs(id),
           item_id INTEGER NOT NULL REFERENCES items(id),
@@ -82,6 +84,11 @@ def init_db():
         customer_columns = {r["name"] for r in c.execute("PRAGMA table_info(customers)")}
         if "client_ref" not in customer_columns:
             c.execute("ALTER TABLE customers ADD COLUMN client_ref TEXT")
+        customer_columns = {r["name"] for r in c.execute("PRAGMA table_info(customers)")}
+        for column, definition in {"first_name": "TEXT DEFAULT ''", "last_name": "TEXT DEFAULT ''"}.items():
+            if column not in customer_columns:
+                c.execute(f"ALTER TABLE customers ADD COLUMN {column} {definition}")
+        c.execute("UPDATE customers SET first_name=name WHERE COALESCE(first_name,'')='' AND COALESCE(last_name,'')=''")
         job_columns = {r["name"] for r in c.execute("PRAGMA table_info(jobs)")}
         if "client_ref" not in job_columns:
             c.execute("ALTER TABLE jobs ADD COLUMN client_ref TEXT")
@@ -92,6 +99,8 @@ def init_db():
             "diagnosed_fault": "TEXT DEFAULT ''",
             "estimate_parts": "INTEGER NOT NULL DEFAULT 0",
             "estimate_labor": "INTEGER NOT NULL DEFAULT 0",
+            "power_state": "TEXT NOT NULL DEFAULT ''",
+            "physical_condition": "TEXT NOT NULL DEFAULT '[]'",
         }
         for column, definition in migrations.items():
             if column not in columns:
@@ -111,12 +120,19 @@ def now():
     return datetime.now().strftime("%Y-%m-%d %H:%M")
 
 
-def add_customer(name, phone="", address="", notes=""):
-    if not name.strip():
+def add_customer(first_name, last_name, phone, address="", notes=""):
+    first_name, last_name, phone = first_name.strip(), last_name.strip(), phone.strip()
+    if not first_name:
         raise ValueError("نام مشتری الزامی است.")
+    if not last_name:
+        raise ValueError("نام خانوادگی مشتری الزامی است.")
+    if not phone:
+        raise ValueError("شماره تماس مشتری الزامی است.")
     with db() as c:
-        return c.execute("INSERT INTO customers(name,phone,address,notes) VALUES(?,?,?,?)",
-                         (name.strip(), phone.strip(), address.strip(), notes.strip())).lastrowid
+        return c.execute(
+            "INSERT INTO customers(name,first_name,last_name,phone,address,notes) VALUES(?,?,?,?,?,?)",
+            (f"{first_name} {last_name}", first_name, last_name, phone, address.strip(), notes.strip())
+        ).lastrowid
 
 
 def add_item(sku, name, qty, cost, price):
@@ -157,15 +173,22 @@ def create_job(customer_id, device, problem):
         return job_id
 
 
-def save_intake(job_id, reported_fault, checks, diagnosed_fault, estimate_parts, estimate_labor):
+def save_intake(job_id, reported_fault, checks, diagnosed_fault, estimate_parts, estimate_labor,
+                power_state="", physical_conditions=None):
     checks = list(dict.fromkeys(str(x).strip() for x in checks if str(x).strip()))
+    physical_conditions = list(dict.fromkeys(
+        str(x).strip() for x in (physical_conditions or []) if str(x).strip()))
+    if power_state not in ("روشن", "خاموش"):
+        raise ValueError("وضعیت روشن یا خاموش بودن دستگاه را مشخص کنید.")
     with db() as c:
         if not c.execute("SELECT id FROM jobs WHERE id=?", (job_id,)).fetchone():
             raise ValueError("پرونده یافت نشد.")
         c.execute("""UPDATE jobs SET problem=?, intake_checks=?, diagnosed_fault=?,
-                     estimate_parts=?, estimate_labor=? WHERE id=?""",
+                     estimate_parts=?, estimate_labor=?, power_state=?, physical_condition=?
+                     WHERE id=?""",
                   (reported_fault.strip(), json.dumps(checks, ensure_ascii=False),
-                   diagnosed_fault.strip(), estimate_parts, estimate_labor, job_id))
+                   diagnosed_fault.strip(), estimate_parts, estimate_labor, power_state,
+                   json.dumps(physical_conditions, ensure_ascii=False), job_id))
 
 
 def use_items(job_id, quantities):
@@ -216,7 +239,7 @@ def save_job(job_id, labor, discount, paid, status):
 def job_summary(job_id):
     with db() as c:
         row = c.execute("""
-        SELECT j.*,c.name AS customer_name,c.phone,c.address
+        SELECT j.*,c.name AS customer_name,c.first_name,c.last_name,c.phone,c.address
         FROM jobs j JOIN customers c ON c.id=j.customer_id WHERE j.id=?""",
                         (job_id,)).fetchone()
         if row is None:
@@ -229,6 +252,73 @@ def job_summary(job_id):
     costs = sum(x["qty"] * x["unit_cost"] for x in lines)
     total = parts + row["labor"] - row["discount"]
     return row, lines, parts, costs, total
+
+
+def export_intake_report(job_id):
+    """Create a printable PDF and PNG intake receipt in the application's Archive folder."""
+    try:
+        from reportlab.pdfgen import canvas
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        from PIL import Image, ImageDraw, ImageFont
+        import arabic_reshaper
+        from bidi.algorithm import get_display
+    except ImportError as exc:
+        raise RuntimeError("برای ساخت PDF و تصویر، وابستگی‌های گزارش نصب نشده‌اند: " + str(exc))
+    row, _lines, _parts, _costs, _total = job_summary(job_id)
+    archive = (Path(sys.executable).resolve().parent if getattr(sys, "frozen", False)
+               else Path(__file__).resolve().parent) / "Archive" / "IntakeReports"
+    archive.mkdir(parents=True, exist_ok=True)
+    code = row["order_code"] or f"JOB-{job_id}"
+    pdf_path, png_path = archive / f"{code}.pdf", archive / f"{code}.png"
+    physical = json.loads(row["physical_condition"] or "[]")
+    checks = json.loads(row["intake_checks"] or "[]")
+    lines = [
+        "گزارش پذیرش دستگاه | ShopManager", f"شماره پرونده: {code}",
+        f"تاریخ پذیرش: {row['created_at']}", "",
+        "مشخصات مشتری", f"نام: {row['first_name'] or row['customer_name']} {row['last_name'] or ''}",
+        f"شماره تماس: {row['phone']}", f"آدرس: {row['address'] or 'ثبت نشده'}", "",
+        "مشخصات دستگاه", f"دستگاه: {row['device']}",
+        f"وضعیت هنگام تحویل: {row['power_state'] or 'ثبت نشده'}",
+        f"عیب اعلامی مشتری: {row['problem'] or 'ثبت نشده'}",
+        f"تشخیص اولیه تعمیرکار: {row['diagnosed_fault'] or 'ثبت نشده'}", "",
+        "وضعیت فیزیکی و قطعات", *(["• " + x for x in physical] or ["موردی ثبت نشده"]),
+        "", "موارد عیب و عملکرد", *(["• " + x for x in checks] or ["موردی ثبت نشده"]),
+        "", "امضای مشتری: ....................................",
+        "امضای تحویل‌گیرنده: ...................................."
+    ]
+    font_candidates = [
+        Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts" / "tahoma.ttf",
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        Path("/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf")
+    ]
+    font_path = next((p for p in font_candidates if p.exists()), None)
+    if not font_path:
+        raise RuntimeError("فونت فارسی مناسب پیدا نشد؛ فونت Tahoma یا Noto نصب کنید.")
+    def shaped(value):
+        return get_display(arabic_reshaper.reshape(str(value)))
+    pdfmetrics.registerFont(TTFont("ShopManagerArabic", str(font_path)))
+    pdf = canvas.Canvas(str(pdf_path), pagesize=(595, 842))
+    pdf.setTitle(f"گزارش پذیرش {code}")
+    y = 800
+    for idx, line in enumerate(lines):
+        if y < 55:
+            pdf.showPage()
+            y = 800
+        pdf.setFont("ShopManagerArabic", 15 if idx == 0 else 10)
+        pdf.drawRightString(555, y, shaped(line))
+        y -= 27 if idx == 0 else 22
+    pdf.save()
+    image = Image.new("RGB", (1240, max(1754, 120 + len(lines) * 48)), "white")
+    draw = ImageDraw.Draw(image)
+    image_font = ImageFont.truetype(str(font_path), 28)
+    y = 55
+    for line in lines:
+        draw.text((1180, y), shaped(line), font=image_font, fill="#17263d", anchor="ra")
+        y += 48
+    image.save(png_path, format="PNG", optimize=True)
+    webbrowser.open(pdf_path.as_uri())
+    return pdf_path
 
 
 def invoice(job_id):
@@ -249,7 +339,10 @@ def invoice(job_id):
     else:
         comparison = "تفاوت بین عیب اعلامی مشتری و تشخیص تعمیرکار وجود دارد."
     estimated_total = row["estimate_parts"] + row["estimate_labor"]
+    physical_conditions = json.loads(row["physical_condition"] or "[]")
     diagnosis_block = f"""<h3>گزارش پذیرش و عیب‌یابی</h3>
+    <p><strong>وضعیت دستگاه هنگام تحویل:</strong> {e(row['power_state']) or 'ثبت نشده'}</p>
+    <p><strong>وضعیت فیزیکی و قطعات:</strong> {e('، '.join(physical_conditions)) or 'موردی انتخاب نشده'}</p>
     <p><strong>عیب اعلامی مشتری:</strong> {e(row['problem']) or 'ثبت نشده'}</p>
     <p><strong>موارد ثبت‌شده هنگام تحویل:</strong> {e('، '.join(intake_checks)) or 'موردی انتخاب نشده'}</p>
     <p><strong>عیب تشخیص‌داده‌شده توسط تعمیرکار:</strong> {e(row['diagnosed_fault']) or 'هنوز ثبت نشده'}</p>
@@ -376,13 +469,13 @@ class App(tk.Tk):
         bar = ttk.Frame(self.ctab)
         bar.pack(fill="x", pady=12)
         self.customer_fields = []
-        for label in ("نام مشتری", "شماره تماس", "آدرس", "توضیحات"):
+        for label in ("نام", "نام خانوادگی", "شماره تماس", "آدرس (اختیاری)", "توضیحات (اختیاری)"):
             frame, field = self.label_entry(bar, label, 17)
             frame.pack(side="right", padx=4)
             self.customer_fields.append(field)
         ttk.Button(bar, text="ثبت مشتری", command=lambda: self.perform(self.new_customer)).pack(side="right", padx=10)
-        self.customer_tree = self.table(self.ctab, ("id", "name", "phone", "address", "notes"),
-                                        ("کد", "نام", "تماس", "آدرس", "یادداشت"))
+        self.customer_tree = self.table(self.ctab, ("id", "first_name", "last_name", "phone", "address", "notes"),
+                                        ("کد", "نام", "نام خانوادگی", "شماره تماس", "آدرس", "یادداشت"))
 
     def new_customer(self):
         values = [f.get() for f in self.customer_fields]
@@ -496,6 +589,33 @@ class App(tk.Tk):
         self.device_type.bind("<<ComboboxSelected>>", lambda _e: self.toggle_keypad())
         fields = ttk.Frame(intake)
         fields.pack(fill="x", padx=6, pady=4)
+        condition_box = ttk.LabelFrame(intake, text="وضعیت دستگاه هنگام تحویل")
+        condition_box.pack(fill="x", padx=6, pady=4)
+        power_row = ttk.Frame(condition_box)
+        power_row.pack(fill="x", padx=6, pady=3)
+        ttk.Label(power_row, text="وضعیت روشن/خاموش:").pack(side="right", padx=5)
+        self.power_state_choice = ttk.Combobox(power_row, state="readonly", width=12,
+                                                values=("روشن", "خاموش"), justify="right")
+        self.power_state_choice.pack(side="right", padx=5)
+        physical_options = (
+            "شکستگی نمایشگر", "ترک‌خوردگی قاب", "شکستگی قاب/بدنه", "آسیب‌دیدگی سوکت شارژ",
+            "آثار رطوبت یا آب‌خوردگی", "خط‌وخش یا فرورفتگی", "باتری مفقود", "سیم‌کارت مفقود",
+            "کارت حافظه مفقود", "خشاب سیم‌کارت مفقود", "پیچ یا قطعه بدنه مفقود", "سایر نقص‌ها"
+        )
+        self.physical_vars = {}
+        physical_grid = ttk.Frame(condition_box)
+        physical_grid.pack(fill="x", padx=6, pady=3)
+        for idx, condition in enumerate(physical_options):
+            var = tk.BooleanVar(value=False)
+            self.physical_vars[condition] = var
+            ttk.Checkbutton(physical_grid, text=condition, variable=var).grid(
+                row=idx // 4, column=3 - (idx % 4), sticky="e", padx=8, pady=2)
+        self.physical_other_entry = ttk.Entry(condition_box, width=48, justify="right")
+        self.physical_other_entry.pack(anchor="e", padx=10, pady=3)
+        self.physical_other_entry.insert(0, "شرح سایر نقص‌ها / قطعات مفقود (اختیاری)")
+        self.physical_other_entry.bind("<FocusIn>", lambda _e: self.physical_other_entry.delete(0, "end")
+            if self.physical_other_entry.get().startswith("شرح سایر") else None)
+
         ttk.Label(fields, text="عیب تشخیص‌داده‌شده:").pack(side="right", padx=4)
         self.diagnosed_entry = ttk.Entry(fields, width=30, justify="right")
         self.diagnosed_entry.pack(side="right", padx=4)
@@ -571,12 +691,19 @@ class App(tk.Tk):
         faulty_keys = [key for key, var in self.keypad_vars.items() if var.get()]
         if faulty_keys:
             checks.append("دکمه‌های معیوب: " + "، ".join(faulty_keys))
+        physical = [name for name, var in self.physical_vars.items() if var.get()]
+        extra = self.physical_other_entry.get().strip()
+        if extra and not extra.startswith("شرح سایر"):
+            physical.append("سایر: " + extra)
         save_intake(
             job_id, self.current_reported_fault,
             checks, self.diagnosed_entry.get(),
             amount(self.estimate_parts_entry.get(), "برآورد قطعات"),
-            amount(self.estimate_labor_entry.get(), "برآورد دستمزد"))
+            amount(self.estimate_labor_entry.get(), "برآورد دستمزد"),
+            self.power_state_choice.get(), physical)
         self.load_job()
+        path = export_intake_report(job_id)
+        messagebox.showinfo("گزارش پذیرش ذخیره شد", f"نسخه PDF و تصویر گزارش در پوشه بایگانی ذخیره شدند.\n{path}")
 
     def load_device_catalog(self):
         try:
@@ -711,6 +838,13 @@ class App(tk.Tk):
             self.estimate_parts_entry.insert(0, str(row["estimate_parts"]))
             self.estimate_labor_entry.delete(0, "end")
             self.estimate_labor_entry.insert(0, str(row["estimate_labor"]))
+            self.power_state_choice.set(row["power_state"] or "")
+            saved_physical = set(json.loads(row["physical_condition"] or "[]"))
+            for condition, var in self.physical_vars.items():
+                var.set(condition in saved_physical)
+            other = next((x[6:] for x in saved_physical if x.startswith("سایر: ")), "")
+            self.physical_other_entry.delete(0, "end")
+            self.physical_other_entry.insert(0, other)
             saved_checks = set(json.loads(row["intake_checks"] or "[]"))
             for fault, var in self.fault_vars.items():
                 var.set(fault in saved_checks)
@@ -745,7 +879,9 @@ class App(tk.Tk):
             for r in tree.get_children():
                 tree.delete(r)
         for c in customers:
-            self.customer_tree.insert("", "end", values=(c["id"], c["name"], c["phone"], c["address"], c["notes"]))
+            self.customer_tree.insert("", "end", values=(
+                c["id"], c["first_name"] or c["name"], c["last_name"] or "",
+                c["phone"], c["address"], c["notes"]))
         for i in items:
             self.item_tree.insert("", "end", values=(
                 i["id"], i["sku"] or "", i["name"], i["qty"], money(i["cost"]), money(i["price"])))
@@ -753,7 +889,9 @@ class App(tk.Tk):
             self.job_tree.insert("", "end", values=(
                 j["id"], j["order_code"], j["name"], j["device"], j["status"], money(j["labor"]), j["created_at"]))
         self.customer_ids = [c["id"] for c in customers]
-        self.customer_choice["values"] = [f"{c['id']} - {c['name']} ({c['phone']})" for c in customers]
+        self.customer_choice["values"] = [
+            f"{c['id']} - {c['first_name'] or c['name']} {c['last_name'] or ''} ({c['phone']})"
+            for c in customers]
         self.item_ids = [i["id"] for i in items]
         self.item_choice["values"] = [
             f"{i['sku']} - {i['name']} | موجودی {i['qty']} | {money(i['price'])} تومان" for i in items]
