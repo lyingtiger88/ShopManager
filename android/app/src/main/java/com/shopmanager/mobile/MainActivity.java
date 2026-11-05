@@ -5,6 +5,11 @@ import android.app.AlertDialog;
 import android.os.Bundle;
 import android.content.SharedPreferences;
 import android.graphics.Typeface;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.pdf.PdfDocument;
+import android.os.Environment;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.view.View;
@@ -90,7 +95,11 @@ public final class MainActivity extends Activity {
         EditText e = new EditText(this);
         e.setSingleLine(true); e.setTextSize(15); e.setHint(hint);
         e.setText(initial); e.setTextDirection(View.TEXT_DIRECTION_RTL);
-        body.addView(e, new LinearLayout.LayoutParams(-1,-2));
+        e.setPadding(14,12,14,12);
+        e.setBackground(round(Color.WHITE,12));
+        LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);
+        params.setMargins(3,4,3,4);
+        body.addView(e, params);
         return e;
     }
     private void tab(LinearLayout container, String name, Runnable action) {
@@ -193,6 +202,10 @@ public final class MainActivity extends Activity {
                 JSONObject customer=new JSONObject();
                 try {
                     customer.put("name",op.optString("name")+" (در انتظار)");
+                    customer.put("first_name",op.optString("first_name"));
+                    customer.put("last_name",op.optString("last_name"));
+                    customer.put("phone",op.optString("phone"));
+                    customer.put("address",op.optString("address"));
                     customer.put("client_ref",op.optString("ref"));
                     customer.put("id",0);
                     result.put(customer);
@@ -427,10 +440,88 @@ public final class MainActivity extends Activity {
                 String extraPhysical=physicalOther.getText().toString().trim();
                 if(!extraPhysical.isEmpty())physical.put("سایر: "+extraPhysical);
                 op.put("physical_conditions",physical);
+                try {
+                    createIntakeArchive(op,person);
+                    toast("گزارش پذیرش در بایگانی گوشی ذخیره شد");
+                } catch(Exception reportError) {
+                    toast("پذیرش ثبت شد؛ ساخت گزارش ناموفق بود: "+reportError.getMessage());
+                }
                 pending.put(op);save();toast("پذیرش با شناسه موقت ثبت شد");intakePage();
             }catch(Exception e){toast(e.getMessage());}
         });
     }
+    private String createIntakeArchive(JSONObject op, JSONObject person) throws Exception {
+        File base=getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+        if(base==null)base=getFilesDir();
+        File archive=new File(base,"Archive/IntakeReports");
+        if(!archive.exists()&&!archive.mkdirs())throw new IOException("ساخت پوشه بایگانی ممکن نشد");
+        String id=op.optString("ref").replace("-","");
+        if(id.length()>8)id=id.substring(0,8);
+        String code="TEMP-"+id;
+        ArrayList<String> lines=new ArrayList<>();
+        lines.add("گزارش پذیرش دستگاه - ShopManager");
+        lines.add("شناسه موقت پرونده: "+code);
+        lines.add("تاریخ: "+new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm",java.util.Locale.getDefault()).format(new java.util.Date()));
+        lines.add("");
+        lines.add("مشخصات مشتری");
+        lines.add("نام: "+person.optString("first_name",person.optString("name"))+" "+person.optString("last_name"));
+        lines.add("شماره تماس: "+person.optString("phone"));
+        lines.add("آدرس: "+person.optString("address","ثبت نشده"));
+        lines.add("");
+        lines.add("مشخصات دستگاه: "+op.optString("device"));
+        lines.add("وضعیت هنگام تحویل: "+op.optString("power_state"));
+        lines.add("عیب اعلامی مشتری: "+op.optString("reported","ثبت نشده"));
+        lines.add("تشخیص تعمیرکار: "+op.optString("diagnosis","ثبت نشده"));
+        lines.add("");
+        lines.add("وضعیت فیزیکی و قطعات:");
+        JSONArray physical=op.optJSONArray("physical_conditions");
+        if(physical==null||physical.length()==0)lines.add("موردی ثبت نشده");
+        else for(int i=0;i<physical.length();i++)lines.add("• "+physical.optString(i));
+        lines.add("");
+        lines.add("موارد عیب و عملکرد:");
+        JSONArray checks=op.optJSONArray("checks");
+        if(checks==null||checks.length()==0)lines.add("موردی ثبت نشده");
+        else for(int i=0;i<checks.length();i++)lines.add("• "+checks.optString(i));
+        lines.add("");
+        lines.add("امضای مشتری: ........................................");
+        lines.add("امضای تحویل‌گیرنده: ........................................");
+
+        int width=1240, lineHeight=52, height=Math.max(1754,120+lines.size()*lineHeight);
+        Bitmap bitmap=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);
+        Canvas canvas=new Canvas(bitmap);
+        canvas.drawColor(Color.WHITE);
+        Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.setColor(Color.rgb(25,39,58));
+        paint.setTextAlign(Paint.Align.RIGHT);
+        paint.setTextDirection(Paint.DIRECTION_RTL);
+        int y=90;
+        for(int i=0;i<lines.size();i++){
+            paint.setTextSize(i==0?38:27);
+            paint.setTypeface(i==0?Typeface.create("sans-serif",Typeface.BOLD):Typeface.create("sans-serif",Typeface.NORMAL));
+            canvas.drawText(lines.get(i),1180,y,paint);
+            y+=lineHeight;
+        }
+        File png=new File(archive,code+".png");
+        try(FileOutputStream out=new FileOutputStream(png)){bitmap.compress(Bitmap.CompressFormat.PNG,100,out);}
+
+        PdfDocument document=new PdfDocument();
+        PdfDocument.PageInfo info=new PdfDocument.PageInfo.Builder(595,842,1).create();
+        PdfDocument.Page page=document.startPage(info);
+        Canvas pdfCanvas=page.getCanvas();
+        pdfCanvas.drawColor(Color.WHITE);
+        float scale=Math.min(595f/width,842f/height);
+        pdfCanvas.save();
+        pdfCanvas.scale(scale,scale);
+        pdfCanvas.drawBitmap(bitmap,0,0,null);
+        pdfCanvas.restore();
+        document.finishPage(page);
+        File pdf=new File(archive,code+".pdf");
+        try(FileOutputStream out=new FileOutputStream(pdf)){document.writeTo(out);}
+        document.close();
+        bitmap.recycle();
+        return pdf.getAbsolutePath();
+    }
+
     private void jobsPage() {
         reset("پرونده‌های مشترک");
         JSONArray jobs=snapshot.optJSONArray("jobs");
