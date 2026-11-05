@@ -203,16 +203,25 @@ public final class MainActivity extends Activity {
     }
     private void customersPage() {
         reset("ثبت مشتری");
-        EditText name=field("نام مشتری","");
-        EditText phone=field("تلفن","");
-        EditText address=field("آدرس","");
-        action("ثبت مشتری و ارسال در همگام‌سازی",()->{
-            if(name.getText().toString().trim().isEmpty()){toast("نام الزامی است");return;}
+        body.addView(text("پروفایل مشتری"));
+        EditText firstName=field("نام (اجباری)","");
+        EditText lastName=field("نام خانوادگی (اجباری)","");
+        EditText phone=field("شماره تماس (اجباری)","");
+        EditText address=field("آدرس محل سکونت (اختیاری)","");
+        action("ثبت پروفایل مشتری",()->{
+            String first=firstName.getText().toString().trim();
+            String last=lastName.getText().toString().trim();
+            String mobile=phone.getText().toString().trim();
+            if(first.isEmpty()||last.isEmpty()||mobile.isEmpty()){
+                toast("نام، نام خانوادگی و شماره تماس الزامی هستند");return;
+            }
             JSONObject op=new JSONObject();
             try {
                 op.put("kind","customer");op.put("ref",UUID.randomUUID().toString());
-                op.put("name",name.getText().toString().trim());
-                op.put("phone",phone.getText().toString().trim());
+                op.put("first_name",first);
+                op.put("last_name",last);
+                op.put("name",first+" "+last);
+                op.put("phone",mobile);
                 op.put("address",address.getText().toString().trim());
                 pending.put(op);save();toast("مشتری در صف ثبت شد");
                 customersPage();
@@ -315,6 +324,24 @@ public final class MainActivity extends Activity {
             selectedModel.setText("مدل انتخاب‌شده: "+chosenBrand[0]+" "+chosenModel[0]);
         });
         body.addView(text("۴) در صورت نبود مدل در فهرست، نام آن را دستی وارد کنید."));
+        body.addView(text("وضعیت دستگاه هنگام تحویل"));
+        Spinner powerState=new Spinner(this);
+        powerState.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,
+                new String[]{"انتخاب وضعیت","روشن","خاموش"}));
+        body.addView(powerState);
+        body.addView(text("وضعیت فیزیکی و قطعات"));
+        String[] physicalOptions={"شکستگی نمایشگر","ترک‌خوردگی قاب","شکستگی قاب/بدنه",
+                "آسیب‌دیدگی سوکت شارژ","آثار رطوبت یا آب‌خوردگی","خط‌وخش یا فرورفتگی",
+                "باتری مفقود","سیم‌کارت مفقود","کارت حافظه مفقود","خشاب سیم‌کارت مفقود",
+                "پیچ یا قطعه بدنه مفقود","سایر نقص‌ها"};
+        CheckBox[] physicalChecks=new CheckBox[physicalOptions.length];
+        for(int i=0;i<physicalOptions.length;i++){
+            physicalChecks[i]=new CheckBox(this);
+            physicalChecks[i].setText(physicalOptions[i]);
+            body.addView(physicalChecks[i]);
+        }
+        EditText physicalOther=field("شرح سایر نقص‌ها یا قطعات مفقود (اختیاری)","");
+        body.addView(text("گزارش عیب"));
         EditText reported=field("عیب اعلامی مشتری","");
         EditText diagnosis=field("تشخیص تعمیرکار (در صورت مشخص‌بودن)","");
         EditText estimateParts=field("برآورد اولیه قطعات (تومان)","0");
@@ -371,7 +398,11 @@ public final class MainActivity extends Activity {
                 String manualModel=customModel.getText().toString().trim();
                 String model=manualModel.isEmpty()?chosenModel[0]:manualModel;
                 if(model.isEmpty()){toast("مدل گوشی را از فهرست انتخاب کنید یا دستی وارد کنید");return;}
+                if(powerState.getSelectedItemPosition()==0){
+                    toast("وضعیت روشن یا خاموش بودن دستگاه را مشخص کنید");return;
+                }
                 op.put("device",deviceType.getSelectedItem().toString()+" | "+chosenBrand[0]+" | "+model);
+                op.put("power_state",powerState.getSelectedItem().toString());
                 op.put("reported",reported.getText().toString().trim());
                 op.put("diagnosis",diagnosis.getText().toString().trim());
                 op.put("estimate_parts",parseMoney(estimateParts.getText().toString()));
@@ -391,6 +422,11 @@ public final class MainActivity extends Activity {
                     }
                 }
                 op.put("checks",selected);
+                JSONArray physical=new JSONArray();
+                for(int i=0;i<physicalChecks.length;i++)if(physicalChecks[i].isChecked())physical.put(physicalOptions[i]);
+                String extraPhysical=physicalOther.getText().toString().trim();
+                if(!extraPhysical.isEmpty())physical.put("سایر: "+extraPhysical);
+                op.put("physical_conditions",physical);
                 pending.put(op);save();toast("پذیرش با شناسه موقت ثبت شد");intakePage();
             }catch(Exception e){toast(e.getMessage());}
         });
@@ -402,6 +438,8 @@ public final class MainActivity extends Activity {
             JSONObject j=jobs.optJSONObject(i);if(j==null)continue;
             body.addView(text(j.optString("order_code")+" | "+j.optString("customer_name")
                 +" | "+j.optString("device")+" | "+j.optString("status")
+                +"\nوضعیت هنگام تحویل: "+j.optString("power_state")
+                +"\nوضعیت فیزیکی: "+j.optString("physical_condition")
                 +"\nعیب مشتری: "+j.optString("problem")
                 +"\nتشخیص: "+j.optString("diagnosed_fault")
                 +"\nدستمزد: "+j.optLong("labor")+" تومان"));
