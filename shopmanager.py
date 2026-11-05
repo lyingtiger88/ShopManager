@@ -257,7 +257,7 @@ def job_summary(job_id):
     return row, lines, parts, costs, total
 
 
-def export_intake_report(job_id):
+def export_intake_report(job_id, open_pdf=True):
     """Create a printable PDF and PNG intake receipt in the application's Archive folder."""
     try:
         from reportlab.pdfgen import canvas
@@ -320,7 +320,8 @@ def export_intake_report(job_id):
         draw.text((1180, y), shaped(line), font=image_font, fill="#17263d", anchor="ra")
         y += 48
     image.save(png_path, format="PNG", optimize=True)
-    webbrowser.open(pdf_path.as_uri())
+    if open_pdf:
+        webbrowser.open(pdf_path.as_uri())
     return pdf_path
 
 
