@@ -698,14 +698,14 @@ class App(tk.Tk):
         extra = self.physical_other_entry.get().strip()
         if extra and not extra.startswith("شرح سایر"):
             physical.append("سایر: " + extra)
+        if self.power_state_choice.get() not in ("روشن", "خاموش"):
+            raise ValueError("وضعیت روشن یا خاموش بودن دستگاه را مشخص کنید.")
         save_intake(
             job_id, self.current_reported_fault,
             checks, self.diagnosed_entry.get(),
             amount(self.estimate_parts_entry.get(), "برآورد قطعات"),
             amount(self.estimate_labor_entry.get(), "برآورد دستمزد"),
             self.power_state_choice.get(), physical)
-        if self.power_state_choice.get() not in ("روشن", "خاموش"):
-            raise ValueError("وضعیت روشن یا خاموش بودن دستگاه را مشخص کنید.")
         self.load_job()
         path = export_intake_report(job_id)
         messagebox.showinfo("گزارش پذیرش ذخیره شد", f"نسخه PDF و تصویر گزارش در پوشه بایگانی ذخیره شدند.\n{path}")
