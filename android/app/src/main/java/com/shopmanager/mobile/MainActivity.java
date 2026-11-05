@@ -7,9 +7,11 @@ import android.content.SharedPreferences;
 import android.graphics.Typeface;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Paint;
 import android.graphics.pdf.PdfDocument;
 import android.os.Environment;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
+import android.text.style.StyleSpan;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.view.View;
@@ -482,21 +484,27 @@ public final class MainActivity extends Activity {
         lines.add("امضای مشتری: ........................................");
         lines.add("امضای تحویل‌گیرنده: ........................................");
 
-        int width=1240, lineHeight=52, height=Math.max(1754,120+lines.size()*lineHeight);
+        int width=1240;
+        String reportText=android.text.TextUtils.join("\n",lines);
+        SpannableStringBuilder styled=new SpannableStringBuilder(reportText);
+        styled.setSpan(new StyleSpan(Typeface.BOLD),0,lines.get(0).length(),Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        TextView reportView=new TextView(this);
+        reportView.setText(styled);
+        reportView.setTextDirection(View.TEXT_DIRECTION_RTL);
+        reportView.setGravity(android.view.Gravity.RIGHT);
+        reportView.setTextColor(Color.rgb(25,39,58));
+        reportView.setTextSize(22);
+        reportView.setLineSpacing(14,1.15f);
+        reportView.setPadding(70,65,70,65);
+        reportView.measure(
+                View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));
+        int height=Math.max(1754,reportView.getMeasuredHeight());
+        reportView.layout(0,0,width,height);
         Bitmap bitmap=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);
         Canvas canvas=new Canvas(bitmap);
         canvas.drawColor(Color.WHITE);
-        Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
-        paint.setColor(Color.rgb(25,39,58));
-        paint.setTextAlign(Paint.Align.RIGHT);
-        paint.setTextDirection(Paint.DIRECTION_RTL);
-        int y=90;
-        for(int i=0;i<lines.size();i++){
-            paint.setTextSize(i==0?38:27);
-            paint.setTypeface(i==0?Typeface.create("sans-serif",Typeface.BOLD):Typeface.create("sans-serif",Typeface.NORMAL));
-            canvas.drawText(lines.get(i),1180,y,paint);
-            y+=lineHeight;
-        }
+        reportView.draw(canvas);
         File png=new File(archive,code+".png");
         try(FileOutputStream out=new FileOutputStream(png)){bitmap.compress(Bitmap.CompressFormat.PNG,100,out);}
 
