@@ -78,7 +78,7 @@ public final class MainActivity extends Activity {
         LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setPadding(4,6,4,6);nav.setBackground(round(Color.WHITE,18));
         root.addView(nav,new LinearLayout.LayoutParams(-1,-2));
-        tab(nav,"خانه",()->homePage());tab(nav,"پذیرش",()->intakePage());
+        tab(nav,"خانه",()->homePage());tab(nav,"مشتریان",()->customersPage());tab(nav,"پذیرش",()->intakePage());
         tab(nav,"پرونده‌ها",()->jobsPage());tab(nav,"انبار",()->inventoryPage());
         tab(nav,"اتصال",()->connectionPage());
         status();
@@ -103,7 +103,7 @@ public final class MainActivity extends Activity {
         return e;
     }
     private void tab(LinearLayout container, String name, Runnable action) {
-        String glyph="خانه".equals(name)?"⌂":"پذیرش".equals(name)?"🔧":"پرونده‌ها".equals(name)?"▤":"انبار".equals(name)?"▣":"اتصال".equals(name)?"⚙":"•";
+        String glyph="خانه".equals(name)?"⌂":"پذیرش".equals(name)?"🔧":"پرونده‌ها".equals(name)?"▤":"انبار".equals(name)?"▣":"اتصال".equals(name)?"⚙":"مشتریان".equals(name)?"♟":"•";
         LinearLayout item=new LinearLayout(this);item.setOrientation(LinearLayout.VERTICAL);item.setGravity(android.view.Gravity.CENTER);item.setPadding(2,4,2,4);
         TextView icon=text(glyph);icon.setTextSize(19);icon.setTextColor(blue);icon.setGravity(android.view.Gravity.CENTER);
         TextView label=text(name);label.setTextSize(10);label.setTextColor(ink);label.setGravity(android.view.Gravity.CENTER);
