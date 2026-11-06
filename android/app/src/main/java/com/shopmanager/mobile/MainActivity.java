@@ -119,9 +119,10 @@ public final class MainActivity extends Activity {
     }
     private void quickRow(String a,String b,String c) {
         LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);body.addView(row);
-        if("فاکتور".equals(a)) iconTile(row,"▤",a,Color.rgb(125,65,210),this::jobsPage);else if("ثبت تعمیر".equals(a)) iconTile(row,"🔧",a,blue,this::intakePage);else iconTile(row,"▣",a,Color.rgb(25,155,100),this::inventoryPage);
-        if("مشتریان".equals(b)) iconTile(row,"♟",b,Color.rgb(230,140,20),this::customersPage);else if("گزارش‌ها".equals(b)) iconTile(row,"▥",b,Color.rgb(225,65,95),this::jobsPage);else iconTile(row,"⚙",b,Color.rgb(95,115,160),this::connectionPage);
-        if("تنظیمات".equals(c)) iconTile(row,"☷",c,Color.rgb(95,115,160),this::connectionPage);else iconTile(row,"♟",c,Color.rgb(125,65,210),this::customersPage);
+        iconTile(row,"🔧","پذیرش جدید",Color.rgb(0,112,255),this::intakePage);
+        iconTile(row,"♟","مشتری جدید",Color.rgb(0,174,105),this::customersPage);
+        iconTile(row,"▣","کالا و انبار",Color.rgb(230,145,20),this::inventoryPage);
+        iconTile(row,"▤","فاکتور",Color.rgb(130,55,210),this::jobsPage);
     }
     private void action(String name, Runnable run) {
         Button b = new Button(this); b.setText(name); b.setTextColor(Color.WHITE); b.setAllCaps(false); b.setBackground(round(blue,14)); b.setPadding(12,10,12,10); LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,-2);bp.setMargins(3,6,3,6);body.addView(b,bp);
