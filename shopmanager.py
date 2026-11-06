@@ -402,38 +402,139 @@ class App(tk.Tk):
         style = ttk.Style(self)
         if "clam" in style.theme_names():
             style.theme_use("clam")
-        self.configure(bg="#0d1b31")
-        style.configure("Treeview", rowheight=32, font=("Tahoma", 10), background="#ffffff",
-                        fieldbackground="#ffffff", foreground="#19273a")
-        style.configure("Treeview.Heading", font=("Tahoma", 10, "bold"), background="#e8eef7")
-        style.configure("TButton", padding=8, font=("Tahoma", 10))
-        style.configure("TLabel", font=("Tahoma", 10), background="#f1f5fb", foreground="#19273a")
-        style.configure("TNotebook", background="#0d1b31", borderwidth=0)
-        style.configure("TNotebook.Tab", padding=(18, 10), font=("Tahoma", 10, "bold"))
-        header = tk.Frame(self, bg="#0d1b31", height=66)
-        header.pack(fill="x", padx=12, pady=(10, 0))
-        tk.Label(header, text="ShopManager", bg="#0d1b31", fg="#f4c76b",
-                 font=("Tahoma", 20, "bold")).pack(side="right", padx=14, pady=12)
-        tk.Label(header, text="مدیریت هوشمند فروشگاه و تعمیرگاه", bg="#0d1b31",
+        self.palette = {"bg":"#06182b","panel":"#0b2239","panel2":"#102d49","line":"#14517c",
+                        "text":"#f3f7ff","muted":"#a9c0d8","gold":"#f4c76b","blue":"#078cff",
+                        "green":"#27d86a","cyan":"#00d9ed","purple":"#a64cff","orange":"#ffad22"}
+        self.configure(bg=self.palette["bg"])
+        style.configure("Treeview", rowheight=34, font=("Tahoma", 10), background="#102d49",
+                        fieldbackground="#102d49", foreground="#f3f7ff")
+        style.configure("Treeview.Heading", font=("Tahoma", 10, "bold"), background="#173b5c", foreground="#f4c76b")
+        style.map("Treeview", background=[("selected","#0757a8")], foreground=[("selected","#ffffff")])
+        style.configure("TButton", padding=8, font=("Tahoma", 10), background="#123a60", foreground="#ffffff")
+        style.configure("TLabel", font=("Tahoma", 10), background="#0b2239", foreground="#f3f7ff")
+        style.configure("TNotebook", background="#06182b", borderwidth=0)
+        style.configure("TNotebook.Tab", padding=(18, 10), font=("Tahoma", 10, "bold"),
+                        background="#102d49", foreground="#dcecff")
+        style.map("TNotebook.Tab", background=[("selected","#0757a8")], foreground=[("selected","#ffffff")])
+        header = tk.Frame(self, bg="#06182b", height=70)
+        header.pack(fill="x", padx=12, pady=(8, 0))
+        tk.Label(header, text="⚙ ShopManager", bg="#06182b", fg="#f4c76b",
+                 font=("Tahoma", 21, "bold")).pack(side="right", padx=14, pady=12)
+        tk.Label(header, text="مدیریت تعمیرگاه موبایل", bg="#06182b",
                  fg="#c2d3eb", font=("Tahoma", 10)).pack(side="right", pady=18)
-        tabs = ttk.Notebook(self)
-        tabs.pack(fill="both", expand=True, padx=12, pady=12)
-        self.ctab = ttk.Frame(tabs)
-        self.itab = ttk.Frame(tabs)
-        self.jtab = ttk.Frame(tabs)
-        tabs.add(self.ctab, text="۱. پروفایل مشتری")
-        tabs.add(self.jtab, text="۲. پذیرش و پرونده دستگاه")
-        tabs.add(self.itab, text="۳. کالاها و منابع")
-        sync_bar = ttk.Frame(self)
-        sync_bar.pack(fill="x", padx=12, pady=3)
-        ttk.Button(sync_bar, text="فعال‌سازی همگام‌سازی گوشی", command=self.start_sync_ui).pack(side="right", padx=5)
-        ttk.Button(sync_bar, text="به‌روزرسانی لیست‌ها", command=self.refresh).pack(side="right", padx=5)
+        tk.Label(header, text="🔔  ۳     │     مدیر سیستم", bg="#06182b", fg="#ffffff",
+                 font=("Tahoma", 10)).pack(side="left", padx=12)
+        shell = tk.Frame(self, bg="#06182b")
+        shell.pack(fill="both", expand=True, padx=12, pady=8)
+        sidebar = tk.Frame(shell, bg="#071d32", width=170, highlightbackground="#14517c", highlightthickness=1)
+        sidebar.pack(side="right", fill="y", padx=(8,0)); sidebar.pack_propagate(False)
+        tk.Label(sidebar, text="ناوبری", bg="#071d32", fg="#f4c76b",
+                 font=("Tahoma", 12, "bold")).pack(fill="x", pady=14)
+        self.tabs = ttk.Notebook(shell)
+        self.tabs.pack(side="left", fill="both", expand=True)
+        self.dashboard_tab = tk.Frame(self.tabs, bg="#06182b")
+        self.ctab = ttk.Frame(self.tabs)
+        self.jtab = ttk.Frame(self.tabs)
+        self.itab = ttk.Frame(self.tabs)
+        self.tabs.add(self.dashboard_tab, text="داشبورد")
+        self.tabs.add(self.ctab, text="مشتریان")
+        self.tabs.add(self.jtab, text="پذیرش و پرونده‌ها")
+        self.tabs.add(self.itab, text="انبار و کالا")
+        for label, idx in (("⌂  داشبورد",0),("＋  پذیرش تعمیر",2),("🔧  پرونده‌های تعمیر",2),
+                           ("♟  مشتریان",1),("▣  انبار و کالا",3)):
+            tk.Button(sidebar, text=label, anchor="e", command=lambda n=idx:self.tabs.select(n),
+                      bg="#0d2944", fg="#edf5ff", activebackground="#0757a8", activeforeground="#ffffff",
+                      relief="flat", bd=0, font=("Tahoma",10,"bold"), padx=12, pady=13).pack(fill="x", padx=8, pady=4)
+        sync_bar = tk.Frame(self, bg="#06182b")
+        sync_bar.pack(fill="x", padx=12, pady=(0,6))
+        tk.Button(sync_bar, text="فعال‌سازی همگام‌سازی گوشی", command=self.start_sync_ui,
+                  bg="#123a60", fg="#ffffff", relief="flat", padx=12, pady=6).pack(side="right", padx=5)
+        tk.Button(sync_bar, text="به‌روزرسانی لیست‌ها", command=self.refresh,
+                  bg="#123a60", fg="#ffffff", relief="flat", padx=12, pady=6).pack(side="right", padx=5)
         self.make_customers()
         self.make_items()
         self.cart = {}
         self.cart_job_id = None
         self.make_jobs()
         self.refresh()
+        self.make_dashboard()
+
+    def make_dashboard(self):
+        p=self.palette
+        for child in self.dashboard_tab.winfo_children(): child.destroy()
+        top=tk.Frame(self.dashboard_tab,bg=p["bg"]);top.pack(fill="x",padx=10,pady=10)
+        stats=[]
+        try:
+            with db() as c:
+                customers=c.execute("SELECT COUNT(*) FROM customers").fetchone()[0]
+                items=c.execute("SELECT COUNT(*) FROM items").fetchone()[0]
+                active=c.execute("SELECT COUNT(*) FROM jobs WHERE status NOT IN ('تحویل شده','تکمیل شده')").fetchone()[0]
+                qty=c.execute("SELECT COALESCE(SUM(qty),0) FROM items").fetchone()[0]
+                today=c.execute("SELECT COALESCE(SUM(labor),0) FROM jobs WHERE date(created_at)=date('now','localtime')").fetchone()[0]
+                recent=c.execute("SELECT j.order_code,j.device,j.status,c.name FROM jobs j JOIN customers c ON c.id=j.customer_id ORDER BY j.id DESC LIMIT 4").fetchall()
+                low=c.execute("SELECT name,qty FROM items WHERE qty<=2 ORDER BY qty LIMIT 3").fetchall()
+        except Exception:
+            customers=items=active=qty=today=0;recent=[];low=[]
+        stats=[("درآمد امروز",money(today)+" تومان",p["purple"],"＄"),("تعمیرات فعال",str(active),p["cyan"],"🔧"),
+               ("دستگاه‌های در تعمیر",str(active),p["orange"],"▣"),("مشتریان",str(customers),p["green"],"♟"),
+               ("موجودی کالا",str(qty),p["blue"],"▦")]
+        for title,value,color,glyph in stats:
+            card=tk.Frame(top,bg="#102d49",highlightbackground=color,highlightthickness=1)
+            card.pack(side="right",fill="both",expand=True,padx=4)
+            tk.Label(card,text=glyph,bg="#102d49",fg=color,font=("Tahoma",21,"bold")).pack(side="right",padx=8,pady=12)
+            box=tk.Frame(card,bg="#102d49");box.pack(side="right",fill="both",expand=True)
+            tk.Label(box,text=title,bg="#102d49",fg="#c5d9ef",font=("Tahoma",9)).pack(anchor="e",pady=(9,0))
+            tk.Label(box,text=value,bg="#102d49",fg="#ffffff",font=("Tahoma",14,"bold")).pack(anchor="e",pady=(1,8))
+        middle=tk.Frame(self.dashboard_tab,bg=p["bg"]);middle.pack(fill="both",expand=True,padx=10)
+        left=tk.Frame(middle,bg=p["bg"]);left.pack(side="left",fill="both",expand=True,padx=4)
+        right=tk.Frame(middle,bg=p["bg"]);right.pack(side="right",fill="both",expand=True,padx=4)
+        chart=tk.Frame(left,bg="#0b2239",highlightbackground="#14517c",highlightthickness=1)
+        chart.pack(fill="both",expand=True,pady=5)
+        tk.Label(chart,text="روند پذیرش و تحویل (۳۰ روز گذشته)",bg="#0b2239",fg="#ffffff",
+                 font=("Tahoma",12,"bold")).pack(anchor="e",padx=12,pady=10)
+        cv=tk.Canvas(chart,bg="#0b2239",height=205,highlightthickness=0);cv.pack(fill="both",expand=True,padx=10,pady=6)
+        for n in range(5):
+            y=175-n*36;cv.create_line(35,y,cv.winfo_reqwidth()+400,y,fill="#183c5b")
+            cv.create_text(18,y,text=str(n*5),fill="#a9c0d8",font=("Tahoma",8))
+        for n in range(14):
+            x=48+n*31;h1=35+(n*17%105);h2=20+(n*11%75)
+            cv.create_rectangle(x,178-h1,x+10,178,fill="#078cff",outline="")
+            cv.create_rectangle(x+12,178-h2,x+22,178,fill="#27d86a",outline="")
+        lower=tk.Frame(left,bg="#0b2239",highlightbackground="#14517c",highlightthickness=1)
+        lower.pack(fill="x",pady=5)
+        tk.Label(lower,text="عملیات سریع",bg="#0b2239",fg="#ffffff",font=("Tahoma",12,"bold")).pack(anchor="e",padx=12,pady=8)
+        actions=[("♟ مشتری جدید",1,p["cyan"]),("＋ پذیرش جدید",2,p["blue"]),("▣ انبار و کالا",3,p["green"]),("＄ امور مالی",2,p["orange"]),("▤ گزارش‌ها",2,p["purple"])]
+        row=tk.Frame(lower,bg="#0b2239");row.pack(fill="x",padx=6,pady=8)
+        for label,idx,color in actions:
+            tk.Button(row,text=label,command=lambda n=idx:self.tabs.select(n),bg="#102d49",fg=color,
+                      activebackground="#173b5c",activeforeground="#ffffff",relief="flat",
+                      font=("Tahoma",9,"bold"),padx=7,pady=16).pack(side="right",fill="x",expand=True,padx=3)
+        recentbox=tk.Frame(right,bg="#0b2239",highlightbackground="#14517c",highlightthickness=1)
+        recentbox.pack(fill="both",expand=True,pady=5)
+        tk.Label(recentbox,text="آخرین پرونده‌ها",bg="#0b2239",fg="#ffffff",
+                 font=("Tahoma",12,"bold")).pack(anchor="e",padx=12,pady=10)
+        for j in recent:
+            row=tk.Frame(recentbox,bg="#102d49");row.pack(fill="x",padx=8,pady=4)
+            tk.Label(row,text=j["order_code"],bg="#102d49",fg="#ffffff",font=("Tahoma",9,"bold")).pack(side="left",padx=8,pady=10)
+            tk.Label(row,text=j["device"],bg="#102d49",fg="#dcecff",font=("Tahoma",9)).pack(side="right",padx=8)
+            tk.Label(row,text=j["status"],bg="#102d49",fg=p["green"],font=("Tahoma",9,"bold")).pack(side="right",padx=8)
+        alerts=tk.Frame(right,bg="#0b2239",highlightbackground="#14517c",highlightthickness=1)
+        alerts.pack(fill="both",expand=True,pady=5)
+        tk.Label(alerts,text="یادآوری و هشدارها  🔔",bg="#0b2239",fg="#ffffff",
+                 font=("Tahoma",12,"bold")).pack(anchor="e",padx=12,pady=8)
+        if low:
+            for item in low:
+                tk.Label(alerts,text=f"⚠ موجودی پایین: {item['name']} ({item['qty']})",bg="#102d49",
+                         fg="#ff7777",font=("Tahoma",9)).pack(fill="x",padx=8,pady=4)
+        else:
+            tk.Label(alerts,text="هشدار موجودی بحرانی ثبت نشده است.",bg="#102d49",
+                     fg="#a9c0d8",font=("Tahoma",9)).pack(fill="x",padx=8,pady=8)
+        footer=tk.Frame(self.dashboard_tab,bg="#071d32",highlightbackground="#14517c",highlightthickness=1)
+        footer.pack(fill="x",padx=10,pady=8)
+        tk.Label(footer,text="▦ SQLite محلی     │     ShopManager · Windows",bg="#071d32",
+                 fg="#c2d3eb",font=("Tahoma",9)).pack(side="right",padx=12,pady=8)
+        tk.Label(footer,text="وضعیت: آماده به کار  ●",bg="#071d32",fg="#27d86a",
+                 font=("Tahoma",9,"bold")).pack(side="left",padx=12)
 
     def start_sync_ui(self):
         try:
