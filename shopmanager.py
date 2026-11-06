@@ -176,6 +176,11 @@ def update_job_details(job_id,device,problem,notes):
 
 def delete_job(job_id):
     with db() as c:
+        used=c.execute("SELECT item_id,qty FROM job_items WHERE job_id=?",(job_id,)).fetchall()
+        for line in used:
+            c.execute("UPDATE items SET qty=qty+? WHERE id=?",(line["qty"],line["item_id"]))
+            c.execute("INSERT INTO stock_log(item_id,change_qty,reason,created_at) VALUES(?,?,?,?)",
+                      (line["item_id"],line["qty"],f"بازگشت موجودی با حذف پرونده {job_id}",now()))
         c.execute("DELETE FROM job_items WHERE job_id=?",(job_id,))
         c.execute("DELETE FROM jobs WHERE id=?",(job_id,))
 
@@ -693,18 +698,48 @@ class App(tk.Tk):
         self.currency_choice.set(setting("currency","تومان"));self.currency_choice.pack(side="right",padx=10,pady=10)
         ttk.Button(currency,text="ذخیره واحد مالی",command=lambda:set_setting("currency",self.currency_choice.get())).pack(side="right",padx=8)
         security=ttk.LabelFrame(self.settings_tab,text="امنیت برنامه");security.pack(fill="x",padx=12,pady=6)
-        self.password_entry=ttk.Entry(security,show="●",width=26);self.password_entry.pack(side="right",padx=8,pady=10)
+        self.current_password_entry=ttk.Entry(security,show="●",width=18);self.current_password_entry.pack(side="right",padx=5,pady=10)
+        self.current_password_entry.insert(0,"رمز فعلی (در صورت وجود)")
+        self.password_entry=ttk.Entry(security,show="●",width=18);self.password_entry.pack(side="right",padx=5,pady=10)
         ttk.Button(security,text="ثبت / تغییر رمز",command=self.change_password).pack(side="right",padx=8)
-        ttk.Label(security,text="حداقل ۶ کاراکتر؛ برای ویرایش و حذف مشتری و پرونده لازم است.").pack(side="right",padx=8)
+        ttk.Label(security,text="رمز جدید حداقل ۶ کاراکتر؛ ویرایش و حذف مشتری و پرونده نیازمند رمز است.").pack(side="right",padx=8)
 
     def change_password(self):
-        if setting("password_hash") and not self.require_password("تغییر رمز"):return
-        try:set_app_password(self.password_entry.get());self.password_entry.delete(0,"end");messagebox.showinfo("امنیت","رمز ذخیره شد.")
+        current=setting("password_hash")
+        if current and not verify_app_password(self.current_password_entry.get()):
+            messagebox.showerror("امنیت","رمز فعلی صحیح نیست.");return
+        try:
+            set_app_password(self.password_entry.get())
+            self.password_entry.delete(0,"end");self.current_password_entry.delete(0,"end")
+            messagebox.showinfo("امنیت","رمز برنامه ذخیره شد.")
         except Exception as e:messagebox.showerror("خطا",str(e))
 
     def apply_theme(self):
         theme=self.theme_choice.get();set_setting("theme",theme)
-        messagebox.showinfo("تم","انتخاب تم ذخیره شد؛ اعمال کامل آن پس از راه‌اندازی مجدد انجام می‌شود.")
+        bg,panel,fg={"سرمه‌ای نئونی":("#06182b","#0b2239","#f3f7ff"),
+                     "تیره ساده":("#171b22","#252c36","#f3f7ff"),
+                     "روشن":("#edf2f8","#ffffff","#19273a")}[theme]
+        self.palette.update(bg=bg,panel=panel,text=fg)
+        self.configure(bg=bg)
+        style=ttk.Style(self)
+        style.configure("TFrame",background=bg);style.configure("TLabel",background=panel,foreground=fg)
+        style.configure("TLabelframe",background=panel,foreground="#f4c76b")
+        style.configure("TEntry",fieldbackground=panel,foreground=fg,insertcolor=fg)
+        style.configure("TCombobox",fieldbackground=panel,foreground=fg)
+        style.configure("Treeview",background=panel,fieldbackground=panel,foreground=fg)
+        style.configure("Treeview.Heading",background=bg,foreground="#f4c76b")
+        self._recolor_widgets(self,bg,panel,fg)
+        messagebox.showinfo("تم","تم انتخابی اعمال شد.") 
+
+    def _recolor_widgets(self,parent,bg,panel,fg):
+        for child in parent.winfo_children():
+            try:
+                if isinstance(child,(tk.Frame,tk.Canvas)):child.configure(bg=bg)
+                elif isinstance(child,tk.Label):child.configure(bg=panel,fg=fg)
+                elif isinstance(child,tk.Text):child.configure(bg=panel,fg=fg,insertbackground=fg)
+                elif isinstance(child,tk.Button):child.configure(bg=panel,fg=fg,activebackground="#0757a8")
+            except tk.TclError:pass
+            self._recolor_widgets(child,bg,panel,fg)
 
     def start_sync_ui(self):
         try:
