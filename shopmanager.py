@@ -2,6 +2,8 @@
 """ShopManager - offline customer, inventory, repair and invoice manager."""
 import html
 import json
+import hashlib
+import secrets
 import os
 import sqlite3
 import sys
@@ -80,6 +82,8 @@ def init_db():
           id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL REFERENCES items(id),
           change_qty INTEGER NOT NULL, reason TEXT NOT NULL,
           created_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS app_settings(
+          key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '');
         """)
         customer_columns = {r["name"] for r in c.execute("PRAGMA table_info(customers)")}
         if "client_ref" not in customer_columns:
@@ -128,6 +132,52 @@ def init_db():
 def now():
     return datetime.now().strftime("%Y-%m-%d %H:%M")
 
+
+
+def setting(key, default=""):
+    with db() as c:
+        row=c.execute("SELECT value FROM app_settings WHERE key=?",(key,)).fetchone()
+    return row["value"] if row else default
+
+def set_setting(key, value):
+    with db() as c:
+        c.execute("INSERT INTO app_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",(key,str(value)))
+
+def set_app_password(password):
+    if len(password)<6: raise ValueError("رمز برنامه باید حداقل ۶ کاراکتر باشد.")
+    salt=secrets.token_hex(16)
+    digest=hashlib.pbkdf2_hmac("sha256",password.encode(),salt.encode(),240000).hex()
+    set_setting("password_hash",salt+"$"+digest)
+
+def verify_app_password(password):
+    stored=setting("password_hash")
+    if not stored:return False
+    try:
+        salt,digest=stored.split("$",1)
+        candidate=hashlib.pbkdf2_hmac("sha256",password.encode(),salt.encode(),240000).hex()
+        return secrets.compare_digest(candidate,digest)
+    except Exception:return False
+
+def delete_customer(customer_id):
+    with db() as c:
+        if c.execute("SELECT 1 FROM jobs WHERE customer_id=? LIMIT 1",(customer_id,)).fetchone():
+            raise ValueError("برای این مشتری پرونده تعمیر وجود دارد؛ ابتدا پرونده‌های مرتبط را تعیین تکلیف کنید.")
+        c.execute("DELETE FROM customers WHERE id=?",(customer_id,))
+
+def update_customer(customer_id, first_name, last_name, phone, address, notes):
+    first_name,last_name,phone=first_name.strip(),last_name.strip(),phone.strip()
+    if not first_name or not last_name or not phone:raise ValueError("نام، نام خانوادگی و شماره تماس الزامی است.")
+    with db() as c:
+        c.execute("UPDATE customers SET first_name=?,last_name=?,name=?,phone=?,address=?,notes=? WHERE id=?",
+                  (first_name,last_name,first_name+" "+last_name,phone,address.strip(),notes.strip(),customer_id))
+
+def update_job_details(job_id,device,problem,notes):
+    with db() as c:c.execute("UPDATE jobs SET device=?,problem=?,notes=? WHERE id=?",(device.strip(),problem.strip(),notes.strip(),job_id))
+
+def delete_job(job_id):
+    with db() as c:
+        c.execute("DELETE FROM job_items WHERE job_id=?",(job_id,))
+        c.execute("DELETE FROM jobs WHERE id=?",(job_id,))
 
 def add_customer(first_name, last_name="", phone="", address="", notes=""):
     first_name, last_name, phone = first_name.strip(), last_name.strip(), phone.strip()
@@ -437,14 +487,16 @@ class App(tk.Tk):
                  font=("Tahoma", 12, "bold")).pack(fill="x", pady=14)
         self.tabs = ttk.Notebook(shell)
         self.tabs.pack(side="left", fill="both", expand=True)
-        self.dashboard_tab = tk.Frame(self.tabs, bg="#06182b")
-        self.ctab = ttk.Frame(self.tabs)
-        self.jtab = ttk.Frame(self.tabs)
-        self.itab = ttk.Frame(self.tabs)
-        self.tabs.add(self.dashboard_tab, text="داشبورد")
-        self.tabs.add(self.ctab, text="مشتریان")
-        self.tabs.add(self.jtab, text="پذیرش و پرونده‌ها")
-        self.tabs.add(self.itab, text="انبار و کالا")
+        self.dashboard_tab = self.scrollable_tab("داشبورد")
+        self.ctab = self.scrollable_tab("مشتریان")
+        self.jtab = self.scrollable_tab("پذیرش و پرونده‌ها")
+        self.itab = self.scrollable_tab("انبار و کالا")
+        self.invoice_tab = self.scrollable_tab("فاکتورها")
+        self.reports_tab = self.scrollable_tab("گزارش‌ها")
+        self.settings_tab = self.scrollable_tab("تنظیمات")
+        for page,title in ((self.dashboard_tab,"داشبورد"),(self.ctab,"مشتریان"),(self.jtab,"پذیرش و پرونده‌ها"),
+            (self.itab,"انبار و کالا"),(self.invoice_tab,"فاکتورها"),(self.reports_tab,"گزارش‌ها"),(self.settings_tab,"تنظیمات")):
+            self.tabs.add(page.master,text=title)
         for label, idx in (("⌂  داشبورد",0),("＋  پذیرش تعمیر",2),("🔧  پرونده‌های تعمیر",2),
                            ("♟  مشتریان",1),("▣  انبار و کالا",3)):
             tk.Button(sidebar, text=label, anchor="e", command=lambda n=idx:self.tabs.select(n),
@@ -463,6 +515,9 @@ class App(tk.Tk):
         self.make_jobs()
         self.refresh()
         self.make_dashboard()
+        self.make_invoice_page()
+        self.make_reports_page()
+        self.make_settings_page()
 
     def make_dashboard(self):
         p=self.palette
@@ -541,6 +596,115 @@ class App(tk.Tk):
         tk.Label(footer,text="وضعیت: آماده به کار  ●",bg="#071d32",fg="#27d86a",
                  font=("Tahoma",9,"bold")).pack(side="left",padx=12)
 
+
+    def scrollable_tab(self,title):
+        shell=ttk.Frame(self.tabs)
+        canvas=tk.Canvas(shell,bg="#06182b",highlightthickness=0)
+        vs=ttk.Scrollbar(shell,orient="vertical",command=canvas.yview)
+        hs=ttk.Scrollbar(shell,orient="horizontal",command=canvas.xview)
+        canvas.configure(yscrollcommand=vs.set,xscrollcommand=hs.set)
+        vs.pack(side="right",fill="y");hs.pack(side="bottom",fill="x");canvas.pack(side="left",fill="both",expand=True)
+        inner=tk.Frame(canvas,bg="#06182b");window=canvas.create_window((0,0),window=inner,anchor="nw")
+        inner.bind("<Configure>",lambda _e:canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>",lambda e:canvas.itemconfigure(window,width=max(e.width,inner.winfo_reqwidth())))
+        canvas.bind_all("<MouseWheel>",lambda e:canvas.yview_scroll(int(-e.delta/120),"units"))
+        inner.master=shell
+        return inner
+
+    def require_password(self,purpose):
+        if not setting("password_hash"):
+            messagebox.showwarning("امنیت","ابتدا در تنظیمات رمز برنامه تعیین کنید.");self.tabs.select(self.settings_tab.master);return False
+        win=tk.Toplevel(self);win.title("تأیید رمز برنامه");win.transient(self);win.grab_set()
+        ttk.Label(win,text=f"برای {purpose} رمز برنامه را وارد کنید").pack(padx=18,pady=12)
+        entry=ttk.Entry(win,show="●",width=28);entry.pack(padx=18,pady=6);entry.focus_set()
+        result={"ok":False}
+        def accept():
+            if verify_app_password(entry.get()):result["ok"]=True;win.destroy()
+            else:messagebox.showerror("خطا","رمز عبور نادرست است.",parent=win);entry.delete(0,"end")
+        ttk.Button(win,text="تأیید",command=accept).pack(pady=12);win.bind("<Return>",lambda _e:accept())
+        self.wait_window(win);return result["ok"]
+
+    def edit_dialog(self,title,fields):
+        win=tk.Toplevel(self);win.title(title);win.transient(self);win.grab_set();entries=[]
+        for label,value in fields:
+            row=ttk.Frame(win);row.pack(fill="x",padx=12,pady=5);ttk.Label(row,text=label).pack(side="right",padx=5)
+            e=ttk.Entry(row,width=36);e.insert(0,value or "");e.pack(side="right");entries.append(e)
+        result={"values":None}
+        def save_values():result["values"]=[e.get() for e in entries];win.destroy()
+        ttk.Button(win,text="ذخیره",command=save_values).pack(pady=12);win.wait_window();return result["values"]
+
+    def edit_customer(self):
+        cid=self.selected(self.customer_tree,"مشتری")
+        if not self.require_password("ویرایش مشتری"):return
+        with db() as c:r=c.execute("SELECT * FROM customers WHERE id=?",(cid,)).fetchone()
+        vals=self.edit_dialog("ویرایش مشتری",[("نام",r["first_name"] or r["name"]),("نام خانوادگی",r["last_name"]),("تلفن",r["phone"]),("آدرس",r["address"]),("یادداشت",r["notes"])])
+        if vals:update_customer(cid,*vals);self.refresh()
+
+    def delete_customer_ui(self):
+        cid=self.selected(self.customer_tree,"مشتری")
+        if self.require_password("حذف مشتری") and messagebox.askyesno("حذف","مشتری انتخاب‌شده حذف شود؟"):
+            delete_customer(cid);self.refresh()
+
+    def edit_job_ui(self):
+        jid=self.selected(self.job_tree,"پرونده")
+        if not self.require_password("ویرایش پرونده"):return
+        with db() as c:r=c.execute("SELECT * FROM jobs WHERE id=?",(jid,)).fetchone()
+        vals=self.edit_dialog("ویرایش پرونده",[("دستگاه",r["device"]),("عیب اعلامی",r["problem"]),("یادداشت",r["notes"])])
+        if vals:update_job_details(jid,*vals);self.refresh()
+
+    def delete_job_ui(self):
+        jid=self.selected(self.job_tree,"پرونده")
+        if self.require_password("حذف پرونده") and messagebox.askyesno("حذف","پرونده و اقلام مصرفی آن حذف شوند؟"):
+            delete_job(jid);self.cart.clear();self.refresh()
+
+    def make_invoice_page(self):
+        ttk.Label(self.invoice_tab,text="صدور فاکتور").pack(anchor="e",padx=12,pady=12)
+        ttk.Button(self.invoice_tab,text="صدور فاکتور پرونده انتخاب‌شده",command=lambda:self.perform(self.make_invoice)).pack(anchor="e",padx=12,pady=8)
+        ttk.Label(self.invoice_tab,text="پرونده را در تب پذیرش انتخاب کنید.").pack(anchor="e",padx=12)
+
+    def make_reports_page(self):
+        ttk.Label(self.reports_tab,text="گزارش‌های مدیریتی").pack(anchor="e",padx=12,pady=10)
+        self.report_text=tk.Text(self.reports_tab,height=22,bg="#102d49",fg="#f3f7ff",insertbackground="white")
+        self.report_text.pack(fill="both",expand=True,padx=12,pady=8)
+        ttk.Button(self.reports_tab,text="به‌روزرسانی",command=self.refresh_reports).pack(anchor="e",padx=12,pady=8)
+        self.refresh_reports()
+
+    def refresh_reports(self):
+        with db() as c:
+            total=c.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
+            active=c.execute("SELECT COUNT(*) FROM jobs WHERE status NOT IN ('تحویل شده','تکمیل شده')").fetchone()[0]
+            customers=c.execute("SELECT COUNT(*) FROM customers").fetchone()[0]
+            revenue=c.execute("SELECT COALESCE(SUM(paid),0) FROM jobs").fetchone()[0]
+            low=c.execute("SELECT COUNT(*) FROM items WHERE qty<=2").fetchone()[0]
+        report=f"کل پرونده‌ها: {total}\\nپرونده‌های فعال: {active}\\nمشتریان: {customers}\\nدریافتی ثبت‌شده: {money(revenue)} {self.currency_label()}\\nاقلام کم‌موجود: {low}"
+        self.report_text.delete("1.0","end");self.report_text.insert("1.0",report)
+
+    def currency_label(self):return setting("currency","تومان")
+
+    def make_settings_page(self):
+        ttk.Label(self.settings_tab,text="تنظیمات برنامه").pack(anchor="e",padx=12,pady=12)
+        theme=ttk.LabelFrame(self.settings_tab,text="تم برنامه");theme.pack(fill="x",padx=12,pady=6)
+        self.theme_choice=ttk.Combobox(theme,state="readonly",values=("سرمه‌ای نئونی","تیره ساده","روشن"),width=22)
+        self.theme_choice.set(setting("theme","سرمه‌ای نئونی"));self.theme_choice.pack(side="right",padx=10,pady=10)
+        ttk.Button(theme,text="اعمال تم",command=self.apply_theme).pack(side="right",padx=8)
+        currency=ttk.LabelFrame(self.settings_tab,text="واحد مالی");currency.pack(fill="x",padx=12,pady=6)
+        self.currency_choice=ttk.Combobox(currency,state="readonly",values=("تومان","ریال"),width=22)
+        self.currency_choice.set(setting("currency","تومان"));self.currency_choice.pack(side="right",padx=10,pady=10)
+        ttk.Button(currency,text="ذخیره واحد مالی",command=lambda:set_setting("currency",self.currency_choice.get())).pack(side="right",padx=8)
+        security=ttk.LabelFrame(self.settings_tab,text="امنیت برنامه");security.pack(fill="x",padx=12,pady=6)
+        self.password_entry=ttk.Entry(security,show="●",width=26);self.password_entry.pack(side="right",padx=8,pady=10)
+        ttk.Button(security,text="ثبت / تغییر رمز",command=self.change_password).pack(side="right",padx=8)
+        ttk.Label(security,text="حداقل ۶ کاراکتر؛ برای ویرایش و حذف مشتری و پرونده لازم است.").pack(side="right",padx=8)
+
+    def change_password(self):
+        if setting("password_hash") and not self.require_password("تغییر رمز"):return
+        try:set_app_password(self.password_entry.get());self.password_entry.delete(0,"end");messagebox.showinfo("امنیت","رمز ذخیره شد.")
+        except Exception as e:messagebox.showerror("خطا",str(e))
+
+    def apply_theme(self):
+        theme=self.theme_choice.get();set_setting("theme",theme)
+        messagebox.showinfo("تم","انتخاب تم ذخیره شد؛ اعمال کامل آن پس از راه‌اندازی مجدد انجام می‌شود.")
+
     def start_sync_ui(self):
         try:
             from sync_server import start_server, pairing_info
@@ -598,8 +762,9 @@ class App(tk.Tk):
             frame, field = self.label_entry(optional, label, 28)
             frame.pack(side="right", padx=8, pady=8)
             self.customer_fields.append(field)
-        ttk.Button(optional, text="ثبت پروفایل مشتری",
-                   command=lambda: self.perform(self.new_customer)).pack(side="right", padx=12, pady=8)
+        ttk.Button(optional, text="ثبت پروفایل مشتری",command=lambda:self.perform(self.new_customer)).pack(side="right",padx=12,pady=8)
+        ttk.Button(optional,text="ویرایش (رمزدار)",command=lambda:self.perform(self.edit_customer)).pack(side="right",padx=4)
+        ttk.Button(optional,text="حذف (رمزدار)",command=lambda:self.perform(self.delete_customer_ui)).pack(side="right",padx=4)
         self.customer_tree = self.table(self.ctab, ("id", "first_name", "last_name", "phone", "address", "notes"),
                                         ("کد", "نام", "نام خانوادگی", "شماره تماس", "آدرس", "یادداشت"))
 
@@ -675,6 +840,10 @@ class App(tk.Tk):
             ("شناسه داخلی", "کد یکتای سفارش", "مشتری", "دستگاه / سفارش", "وضعیت", "دستمزد", "تاریخ"),
             {"order_code": 170, "customer": 180, "device": 200})
         self.job_tree.configure(height=8)
+        job_actions=ttk.Frame(self.jtab);job_actions.pack(fill="x",padx=8,pady=4)
+        ttk.Button(job_actions,text="ویرایش پرونده (رمزدار)",command=lambda:self.perform(self.edit_job_ui)).pack(side="right",padx=4)
+        ttk.Button(job_actions,text="حذف پرونده (رمزدار)",command=lambda:self.perform(self.delete_job_ui)).pack(side="right",padx=4)
+        ttk.Button(job_actions,text="صدور فاکتور",command=lambda:self.perform(self.make_invoice)).pack(side="right",padx=4)
         self.job_tree.bind("<<TreeviewSelect>>", lambda _event: self.load_job())
         intake = ttk.LabelFrame(self.jtab, text="پذیرش گوشی: چک‌لیست عیب، تشخیص واقعی و برآورد اولیه")
         intake.pack(fill="x", padx=10, pady=5)
