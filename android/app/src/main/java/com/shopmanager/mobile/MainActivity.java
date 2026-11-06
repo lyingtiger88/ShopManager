@@ -56,37 +56,48 @@ public final class MainActivity extends Activity {
             while((n=in.read(buf))!=-1)out.write(buf,0,n);
             deviceCatalog=new JSONObject(out.toString("UTF-8"));
         } catch(Exception ignored) {}
-        getWindow().setStatusBarColor(navy);
-        getWindow().setNavigationBarColor(navy);
-        root = new LinearLayout(this);
+        getWindow().setStatusBarColor(Color.rgb(3,13,26));
+        getWindow().setNavigationBarColor(Color.rgb(3,13,26));
+        root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(12,10,12,7);
+        root.setPadding(dp(12),dp(8),dp(12),dp(8));
         root.setBackgroundColor(pale);
         root.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         setContentView(root);
         LinearLayout header=new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);header.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        header.setPadding(12,9,12,9);
-        GradientDrawable headerBg=gradient(new int[]{Color.rgb(3,15,29),Color.rgb(8,34,58)},18);
-        header.setBackground(headerBg);root.addView(header,new LinearLayout.LayoutParams(-1,-2));
-        TextView menu=text("☰");menu.setTextColor(Color.WHITE);menu.setTextSize(24);header.addView(menu);
-        LinearLayout brandBlock=new LinearLayout(this);brandBlock.setOrientation(LinearLayout.VERTICAL);brandBlock.setGravity(android.view.Gravity.CENTER);
-        header.addView(brandBlock,new LinearLayout.LayoutParams(0,-2,1));
-        TextView brand=text("⚙ ShopManager");brand.setTextColor(Color.rgb(255,202,65));brand.setTextSize(22);brand.setTypeface(null,Typeface.BOLD);brand.setGravity(android.view.Gravity.CENTER);
-        TextView role=text("مدیریت تعمیرگاه موبایل");role.setTextColor(Color.rgb(225,237,255));role.setTextSize(11);role.setGravity(android.view.Gravity.CENTER);
-        brandBlock.addView(brand);brandBlock.addView(role);
-        TextView bell=text("♟  ۳");bell.setTextColor(Color.WHITE);bell.setTextSize(17);header.addView(bell);
-        status=text("");status.setTextColor(Color.rgb(165,194,220));status.setTextSize(10);status.setPadding(5,2,5,2);root.addView(status);
-        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(12),dp(10),dp(12),dp(10));
+        header.setBackground(gradient(new int[]{Color.rgb(10,38,64),Color.rgb(4,18,34)},20));
+        root.addView(header,new LinearLayout.LayoutParams(-1,dp(78)));
+        LinearLayout brand=new LinearLayout(this);
+        brand.setOrientation(LinearLayout.VERTICAL);
+        header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
+        TextView product=text("⚙  ShopManager");
+        product.setTextColor(Color.rgb(250,202,87));product.setTypeface(null,Typeface.BOLD);
+        product.setTextSize(23);product.setPadding(0,0,0,0);
+        brand.addView(product);
+        TextView tagline=text("مدیریت هوشمند فروشگاه و تعمیرگاه");
+        tagline.setTextSize(11);tagline.setTextColor(Color.rgb(171,202,230));
+        tagline.setPadding(0,0,0,0);brand.addView(tagline);
+        TextView menu=text("☰");
+        menu.setTextSize(26);menu.setTextColor(Color.WHITE);menu.setGravity(android.view.Gravity.CENTER);
+        header.addView(menu,new LinearLayout.LayoutParams(dp(44),dp(44)));
+        menu.setOnClickListener(v->showMoreMenu());
+        status=text("");status.setTextSize(11);status.setTextColor(Color.rgb(145,180,212));
+        status.setPadding(dp(7),dp(8),dp(7),dp(8));root.addView(status);
+        ScrollView scroll=new ScrollView(this);
+        scroll.setFillViewport(false);scroll.setVerticalScrollBarEnabled(false);
         root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-        body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(2,7,2,12);scroll.addView(body);
-        HorizontalScrollView navScroll=new HorizontalScrollView(this);navScroll.setHorizontalScrollBarEnabled(false);
-        navScroll.setBackground(gradient(new int[]{Color.rgb(5,24,43),Color.rgb(9,37,61)},18));
-        root.addView(navScroll,new LinearLayout.LayoutParams(-1,-2));
-        LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);nav.setPadding(4,5,4,5);navScroll.addView(nav);
-        tab(nav,"خانه",()->homePage());tab(nav,"پذیرش",()->intakePage());tab(nav,"پرونده‌ها",()->jobsPage());
-        tab(nav,"مشتریان",()->customersPage());tab(nav,"کالاها",()->inventoryPage());
-        tab(nav,"فاکتور",()->invoicePage());tab(nav,"گزارش",()->reportsPage());tab(nav,"تنظیمات",()->settingsPage());
+        body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(dp(1),dp(6),dp(1),dp(22));scroll.addView(body);
+        LinearLayout nav=new LinearLayout(this);nav.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        nav.setOrientation(LinearLayout.HORIZONTAL);nav.setPadding(dp(5),dp(5),dp(5),dp(5));
+        nav.setBackground(gradient(new int[]{Color.rgb(12,42,68),Color.rgb(4,20,37)},20));
+        LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,dp(72));np.topMargin=dp(7);root.addView(nav,np);
+        tab(nav,"خانه",this::homePage);tab(nav,"پذیرش",this::intakePage);
+        tab(nav,"پرونده‌ها",this::jobsPage);tab(nav,"مشتریان",this::customersPage);
+        tab(nav,"بیشتر",this::showMoreMenu);
         status();
         homePage();
         if(!url().isEmpty() && !key().isEmpty()) synchronize();
@@ -109,26 +120,50 @@ public final class MainActivity extends Activity {
         body.addView(e, params);
         return e;
     }
-    private void tab(LinearLayout container, String name, Runnable action) {
-        String glyph="خانه".equals(name)?"⌂":"پذیرش".equals(name)?"🔧":"پرونده‌ها".equals(name)?"▤":"انبار".equals(name)||"کالاها".equals(name)?"▣":"اتصال".equals(name)?"⚙":"مشتریان".equals(name)?"♟":"＋";
-        LinearLayout item=new LinearLayout(this);item.setOrientation(LinearLayout.VERTICAL);item.setGravity(android.view.Gravity.CENTER);item.setPadding(2,3,2,3);
-        TextView icon=text(glyph);icon.setTextSize(19);icon.setTextColor(Color.rgb(190,211,235));icon.setGravity(android.view.Gravity.CENTER);
-        TextView label=text(name);label.setTextSize(9);label.setTextColor(Color.rgb(190,211,235));label.setGravity(android.view.Gravity.CENTER);
-        item.addView(icon);item.addView(label);container.addView(item,new LinearLayout.LayoutParams(0,-2,1));item.setOnClickListener(v -> action.run());
+    private int dp(float value){return (int)(value*getResources().getDisplayMetrics().density+0.5f);}
+    private void showMoreMenu(){
+        String[] options={"انبار و کالا","فاکتورها","گزارش‌ها","تنظیمات","اتصال به ویندوز"};
+        new AlertDialog.Builder(this).setTitle("بخش‌های ShopManager").setItems(options,(dialog,index)->{
+            switch(index){case 0:inventoryPage();break;case 1:invoicePage();break;
+                case 2:reportsPage();break;case 3:settingsPage();break;default:connectionPage();}
+        }).show();
     }
-    private void iconTile(LinearLayout row,String glyph,String label,int color,Runnable run) {
-        LinearLayout tile=new LinearLayout(this);tile.setOrientation(LinearLayout.VERTICAL);tile.setGravity(android.view.Gravity.CENTER);tile.setPadding(4,10,4,10);tile.setBackground(gradient(new int[]{color,Color.rgb(6,29,51)},15));
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,112,1);p.setMargins(4,4,4,4);row.addView(tile,p);
-        TextView icon=text(glyph);icon.setTextSize(27);icon.setTextColor(color);icon.setGravity(android.view.Gravity.CENTER);
-        TextView caption=text(label);caption.setTextSize(11);caption.setTextColor(Color.WHITE);caption.setTypeface(null,Typeface.BOLD);caption.setGravity(android.view.Gravity.CENTER);
-        tile.addView(icon);tile.addView(caption);tile.setElevation(2*getResources().getDisplayMetrics().density);tile.setOnClickListener(v->run.run());
+    private void tab(LinearLayout container,String label,Runnable run){
+        String glyph="خانه".equals(label)?"⌂":"پذیرش".equals(label)?"✚":"پرونده‌ها".equals(label)?"▤":
+                "مشتریان".equals(label)?"♙":"☷";
+        LinearLayout tile=new LinearLayout(this);tile.setOrientation(LinearLayout.VERTICAL);
+        tile.setGravity(android.view.Gravity.CENTER);
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-1,1);
+        p.setMargins(dp(1),0,dp(1),0);container.addView(tile,p);
+        TextView icon=text(glyph);icon.setTextSize(22);icon.setTextColor(Color.rgb(90,174,255));
+        icon.setGravity(android.view.Gravity.CENTER);icon.setPadding(0,0,0,0);tile.addView(icon);
+        TextView name=text(label);name.setTextSize(10);name.setSingleLine(true);
+        name.setTextColor(Color.rgb(215,230,247));name.setGravity(android.view.Gravity.CENTER);
+        name.setPadding(0,dp(1),0,0);tile.addView(name);
+        tile.setOnClickListener(v->run.run());
     }
-    private void quickRow(String a,String b,String c) {
-        LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);body.addView(row);
-        iconTile(row,"🔧","پذیرش جدید",Color.rgb(0,112,255),this::intakePage);
-        iconTile(row,"♟","مشتری جدید",Color.rgb(0,174,105),this::customersPage);
-        iconTile(row,"▣","کالا و انبار",Color.rgb(230,145,20),this::inventoryPage);
-        iconTile(row,"▤","فاکتور",Color.rgb(130,55,210),this::jobsPage);
+    private void iconTile(LinearLayout row,String glyph,String label,int color,Runnable run){
+        LinearLayout tile=new LinearLayout(this);tile.setOrientation(LinearLayout.VERTICAL);
+        tile.setGravity(android.view.Gravity.CENTER);
+        tile.setPadding(dp(7),dp(10),dp(7),dp(10));
+        tile.setBackground(gradient(new int[]{color,Color.rgb(8,34,59)},17));
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(100),1);
+        p.setMargins(dp(4),dp(4),dp(4),dp(4));row.addView(tile,p);
+        TextView symbol=text(glyph);symbol.setTextSize(26);symbol.setTextColor(Color.WHITE);
+        symbol.setGravity(android.view.Gravity.CENTER);symbol.setPadding(0,0,0,dp(3));tile.addView(symbol);
+        TextView caption=text(label);caption.setTextSize(12);caption.setTypeface(null,Typeface.BOLD);
+        caption.setSingleLine(true);caption.setTextColor(Color.WHITE);
+        caption.setGravity(android.view.Gravity.CENTER);caption.setPadding(0,0,0,0);
+        tile.addView(caption);
+        tile.setOnClickListener(v->run.run());
+    }
+    private void quickRow(String a,String b,String c){
+        LinearLayout row1=new LinearLayout(this);row1.setOrientation(LinearLayout.HORIZONTAL);body.addView(row1);
+        iconTile(row1,"✚","پذیرش جدید",Color.rgb(16,106,219),this::intakePage);
+        iconTile(row1,"♙","مشتری جدید",Color.rgb(13,154,104),this::customersPage);
+        LinearLayout row2=new LinearLayout(this);row2.setOrientation(LinearLayout.HORIZONTAL);body.addView(row2);
+        iconTile(row2,"▣","کالا و انبار",Color.rgb(214,133,20),this::inventoryPage);
+        iconTile(row2,"▤","فاکتورها",Color.rgb(116,52,188),this::invoicePage);
     }
     private void action(String name, Runnable run) {
         Button b = new Button(this); b.setText(name); b.setTextColor(Color.WHITE); b.setAllCaps(false); b.setBackground(round(blue,14)); b.setPadding(12,10,12,10); LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,-2);bp.setMargins(3,6,3,6);body.addView(b,bp);
@@ -162,46 +197,108 @@ public final class MainActivity extends Activity {
         GradientDrawable d=new GradientDrawable();d.setColor(color);
         d.setCornerRadius(radiusDp*getResources().getDisplayMetrics().density);return d;
     }
-    private void metricCard(LinearLayout target,String title,String value,int color,String glyph) {
-        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.HORIZONTAL);card.setGravity(android.view.Gravity.CENTER_VERTICAL);card.setPadding(8,7,8,7);
-        card.setBackground(gradient(new int[]{Color.rgb(12,42,70),Color.rgb(5,25,45)},15));
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,82,1);p.setMargins(4,4,4,4);
-        TextView badge=text(glyph);badge.setTextSize(23);badge.setTextColor(Color.WHITE);badge.setGravity(android.view.Gravity.CENTER);
-        badge.setBackground(round(color,40));card.addView(badge,new LinearLayout.LayoutParams(43,43));
-        LinearLayout labels=new LinearLayout(this);labels.setOrientation(LinearLayout.VERTICAL);labels.setGravity(android.view.Gravity.CENTER);
-        TextView v=text(value);v.setTextSize(21);v.setTextColor(Color.WHITE);v.setTypeface(null,Typeface.BOLD);
-        TextView t=text(title);t.setTextSize(10);t.setTextColor(Color.rgb(190,211,235));t.setGravity(android.view.Gravity.CENTER);
-        labels.addView(v);labels.addView(t);card.addView(labels,new LinearLayout.LayoutParams(0,-2,1));target.addView(card,p);
+    private void metricCard(LinearLayout target,String title,String value,int accent,String glyph){
+        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(12),dp(11),dp(12),dp(10));
+        card.setBackground(gradient(new int[]{Color.rgb(12,45,76),Color.rgb(5,27,49)},17));
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(109),1);
+        p.setMargins(dp(4),dp(4),dp(4),dp(4));target.addView(card,p);
+        LinearLayout top=new LinearLayout(this);top.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        card.addView(top,new LinearLayout.LayoutParams(-1,0,1));
+        TextView titleView=text(title);titleView.setTextSize(12);titleView.setTypeface(null,Typeface.BOLD);
+        titleView.setTextColor(Color.rgb(199,220,241));titleView.setPadding(0,0,0,0);
+        top.addView(titleView,new LinearLayout.LayoutParams(0,-2,1));
+        TextView symbol=text(glyph);symbol.setTextSize(19);symbol.setTextColor(accent);
+        symbol.setGravity(android.view.Gravity.CENTER);symbol.setPadding(0,0,0,0);
+        top.addView(symbol,new LinearLayout.LayoutParams(dp(30),dp(30)));
+        TextView v=text(value);v.setTextSize(26);v.setTypeface(null,Typeface.BOLD);
+        v.setTextColor(Color.WHITE);v.setPadding(0,0,0,0);
+        card.addView(v);
+        View strip=new View(this);strip.setBackground(round(accent,5));
+        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(dp(43),dp(3));sp.topMargin=dp(6);
+        card.addView(strip,sp);
     }
-    private void homePage() {
+    private LinearLayout dashboardPanel(String title){
+        LinearLayout outer=new LinearLayout(this);outer.setOrientation(LinearLayout.VERTICAL);
+        outer.setPadding(dp(12),dp(10),dp(12),dp(12));
+        outer.setBackground(gradient(new int[]{Color.rgb(10,37,63),Color.rgb(5,23,43)},17));
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);
+        p.setMargins(dp(4),dp(9),dp(4),dp(3));body.addView(outer,p);
+        TextView heading=text(title);heading.setTextColor(Color.WHITE);
+        heading.setTypeface(null,Typeface.BOLD);heading.setTextSize(15);
+        heading.setPadding(0,0,0,dp(7));outer.addView(heading);
+        return outer;
+    }
+    private void homePage(){
         reset("داشبورد مدیریت تعمیرگاه");
-        JSONArray jobs=snapshot.optJSONArray("jobs"), people=snapshot.optJSONArray("customers"), items=snapshot.optJSONArray("items");
-        LinearLayout metrics1=new LinearLayout(this);metrics1.setOrientation(LinearLayout.HORIZONTAL);body.addView(metrics1);
-        metricCard(metrics1,"تعمیرات فعال",String.valueOf(jobs==null?0:jobs.length()),Color.rgb(0,210,235),"🔧");
-        metricCard(metrics1,"مشتریان",String.valueOf(people==null?0:people.length()),Color.rgb(20,195,120),"♟");
-        LinearLayout metrics2=new LinearLayout(this);metrics2.setOrientation(LinearLayout.HORIZONTAL);body.addView(metrics2);
-        metricCard(metrics2,"موجودی کالا",String.valueOf(items==null?0:items.length()),Color.rgb(255,166,20),"▣");
-        metricCard(metrics2,"پذیرش امروز","۰",Color.rgb(0,126,255),"▤");
-        TextView quick=text("عملیات سریع");quick.setTypeface(null,Typeface.BOLD);quick.setTextSize(17);quick.setTextColor(Color.WHITE);body.addView(quick);
-        quickRow("فاکتور","پذیرش جدید","کالاها");
-        LinearLayout latest=new LinearLayout(this);latest.setOrientation(LinearLayout.VERTICAL);latest.setPadding(10,8,10,8);
-        latest.setBackground(gradient(new int[]{Color.rgb(11,39,65),Color.rgb(5,24,43)},15));body.addView(latest);
-        TextView recent=text("آخرین پرونده‌ها");recent.setTextSize(16);recent.setTypeface(null,Typeface.BOLD);recent.setTextColor(Color.WHITE);latest.addView(recent);
-        if(jobs!=null)for(int i=Math.max(0,jobs.length()-4);i<jobs.length();i++){JSONObject j=jobs.optJSONObject(i);if(j!=null){
-            LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.HORIZONTAL);card.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            card.setPadding(7,5,7,5);card.setBackground(round(Color.rgb(15,46,72),11));
-            LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.setMargins(2,4,2,4);latest.addView(card,cp);
-            TextView code=text(j.optString("order_code"));code.setTextColor(Color.WHITE);code.setTextSize(10);card.addView(code,new LinearLayout.LayoutParams(0,-2,1));
-            TextView detail=text(j.optString("device")+"  |  "+j.optString("status"));detail.setTextColor(Color.rgb(215,231,248));detail.setTextSize(10);card.addView(detail);
-        }}
-        LinearLayout alerts=new LinearLayout(this);alerts.setOrientation(LinearLayout.VERTICAL);alerts.setPadding(10,8,10,8);
-        alerts.setBackground(gradient(new int[]{Color.rgb(11,39,65),Color.rgb(5,24,43)},15));
-        LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,-2);ap.setMargins(0,7,0,4);body.addView(alerts,ap);
-        TextView at=text("🔔  یادآوری و هشدارها");at.setTextColor(Color.WHITE);at.setTypeface(null,Typeface.BOLD);alerts.addView(at);
-        alerts.addView(text("در انتظار ارسال: "+pending.length()+" مورد"));
-        action("اتصال و همگام‌سازی با نسخه ویندوز",this::connectionPage);
-    }
+        JSONArray jobs=snapshot.optJSONArray("jobs"),customers=snapshot.optJSONArray("customers"),
+                items=snapshot.optJSONArray("items");
+        int active=0,delivered=0,low=0;long paid=0;
+        if(jobs!=null)for(int i=0;i<jobs.length();i++){
+            JSONObject j=jobs.optJSONObject(i);if(j==null)continue;
+            String state=j.optString("status");
+            if("تحویل شده".equals(state)||"تکمیل شده".equals(state))delivered++;
+            else active++;
+            paid+=j.optLong("paid");
+        }
+        if(items!=null)for(int i=0;i<items.length();i++){
+            JSONObject item=items.optJSONObject(i);if(item!=null&&item.optInt("qty")<=2)low++;
+        }
+        LinearLayout first=new LinearLayout(this);first.setOrientation(LinearLayout.HORIZONTAL);body.addView(first);
+        metricCard(first,"تعمیرات فعال",String.valueOf(active),Color.rgb(9,213,232),"✚");
+        metricCard(first,"مشتریان",String.valueOf(customers==null?0:customers.length()),Color.rgb(26,222,133),"♙");
+        LinearLayout second=new LinearLayout(this);second.setOrientation(LinearLayout.HORIZONTAL);body.addView(second);
+        metricCard(second,"موجودی کالا",String.valueOf(items==null?0:items.length()),Color.rgb(255,176,46),"▣");
+        metricCard(second,"دریافتی ثبت‌شده",compactMoney(paid),Color.rgb(186,115,253),"﷼");
 
+        LinearLayout quick=dashboardPanel("عملیات سریع");
+        // Keep quick actions inside their own card, not the root, to match the reference.
+        LinearLayout firstQuick=new LinearLayout(this);firstQuick.setOrientation(LinearLayout.HORIZONTAL);quick.addView(firstQuick);
+        iconTile(firstQuick,"✚","پذیرش جدید",Color.rgb(15,101,221),this::intakePage);
+        iconTile(firstQuick,"♙","مشتری جدید",Color.rgb(12,156,108),this::customersPage);
+        LinearLayout secondQuick=new LinearLayout(this);secondQuick.setOrientation(LinearLayout.HORIZONTAL);quick.addView(secondQuick);
+        iconTile(secondQuick,"▣","انبار و کالا",Color.rgb(207,130,19),this::inventoryPage);
+        iconTile(secondQuick,"▤","فاکتورها",Color.rgb(118,48,188),this::invoicePage);
+
+        LinearLayout recent=dashboardPanel("آخرین پرونده‌های تعمیر");
+        if(jobs==null||jobs.length()==0){
+            TextView empty=text("هنوز پرونده‌ای ثبت نشده است. برای شروع، پذیرش جدید ایجاد کنید.");
+            empty.setTextColor(Color.rgb(169,196,220));empty.setTextSize(12);recent.addView(empty);
+        }else{
+            int count=0;for(int i=0;i<jobs.length()&&count<4;i++){
+                JSONObject j=jobs.optJSONObject(i);if(j==null)continue;count++;
+                LinearLayout line=new LinearLayout(this);line.setGravity(android.view.Gravity.CENTER_VERTICAL);
+                line.setPadding(dp(9),dp(6),dp(9),dp(6));
+                line.setBackground(round(Color.rgb(13,49,79),11));
+                LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(3),0,dp(3));recent.addView(line,lp);
+                LinearLayout names=new LinearLayout(this);names.setOrientation(LinearLayout.VERTICAL);
+                line.addView(names,new LinearLayout.LayoutParams(0,-2,1));
+                TextView code=text(j.optString("order_code")+"  •  "+j.optString("customer_name"));
+                code.setTextColor(Color.WHITE);code.setTextSize(12);code.setTypeface(null,Typeface.BOLD);
+                code.setPadding(0,0,0,0);names.addView(code);
+                TextView device=text(j.optString("device"));
+                device.setTextColor(Color.rgb(174,201,225));device.setTextSize(11);device.setPadding(0,0,0,0);names.addView(device);
+                TextView state=text(j.optString("status"));
+                state.setTextColor(Color.rgb(54,218,149));state.setTextSize(11);line.addView(state);
+            }
+        }
+
+        LinearLayout alerts=dashboardPanel("یادآوری‌ها و هشدارها");
+        TextView line1=text("●  "+pending.length()+" ثبت در انتظار همگام‌سازی با ویندوز");
+        line1.setTextColor(Color.rgb(255,188,77));alerts.addView(line1);
+        TextView line2=text("●  "+low+" قلم کالا با موجودی پایین");
+        line2.setTextColor(Color.rgb(181,211,240));alerts.addView(line2);
+        LinearLayout sync=dashboardPanel("اتصال به سیستم اصلی");
+        TextView hint=text(url().isEmpty()?"سیستم ویندوز هنوز متصل نشده است.":"نشانی مستر: "+url());
+        hint.setTextSize(12);hint.setTextColor(Color.rgb(176,207,237));sync.addView(hint);
+        Button connect=new Button(this);connect.setText("اتصال و همگام‌سازی");
+        connect.setAllCaps(false);connect.setTextColor(Color.WHITE);connect.setBackground(round(blue,13));
+        sync.addView(connect,new LinearLayout.LayoutParams(-1,dp(48)));
+        connect.setOnClickListener(v->connectionPage());
+    }
+    private String compactMoney(long amount){
+        return String.format(java.util.Locale.US,"%,d",amount);
+    }
 
     private String currency(){return prefs.getString("currency","تومان");}
     private String moneyText(long value){return String.format(java.util.Locale.US,"%,d",value)+" "+currency();}
