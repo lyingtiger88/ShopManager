@@ -257,7 +257,7 @@ public final class MainActivity extends Activity {
         body.addView(text("ظاهر و پوسته"));
         Spinner themes=new Spinner(this);String[] themeNames={"سرمه‌ای نئونی","تیره ساده","روشن"};
         themes.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,themeNames));
-        String current=prefs.getString("theme",themeNames[0]);for(int i=0;i<themeNames.length;i++)if(themeNames[i].equals(current))themes.setSelection(i);
+        String savedTheme=prefs.getString("theme",themeNames[0]);for(int i=0;i<themeNames.length;i++)if(themeNames[i].equals(savedTheme))themes.setSelection(i);
         body.addView(themes,new LinearLayout.LayoutParams(-1,-2));
         body.addView(text("واحد مالی"));
         Spinner currencies=new Spinner(this);String[] units={"تومان","ریال"};currencies.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,units));
