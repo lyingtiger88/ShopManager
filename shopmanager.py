@@ -406,6 +406,11 @@ class App(tk.Tk):
                         "text":"#f3f7ff","muted":"#a9c0d8","gold":"#f4c76b","blue":"#078cff",
                         "green":"#27d86a","cyan":"#00d9ed","purple":"#a64cff","orange":"#ffad22"}
         self.configure(bg=self.palette["bg"])
+        style.configure("TFrame", background="#06182b")
+        style.configure("TLabelframe", background="#0b2239", foreground="#f4c76b")
+        style.configure("TLabelframe.Label", background="#0b2239", foreground="#f4c76b", font=("Tahoma",10,"bold"))
+        style.configure("TEntry", fieldbackground="#102d49", foreground="#ffffff", insertcolor="#ffffff")
+        style.configure("TCombobox", fieldbackground="#102d49", foreground="#ffffff")
         style.configure("Treeview", rowheight=34, font=("Tahoma", 10), background="#102d49",
                         fieldbackground="#102d49", foreground="#f3f7ff")
         style.configure("Treeview.Heading", font=("Tahoma", 10, "bold"), background="#173b5c", foreground="#f4c76b")
