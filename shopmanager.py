@@ -498,7 +498,8 @@ class App(tk.Tk):
             (self.itab,"انبار و کالا"),(self.invoice_tab,"فاکتورها"),(self.reports_tab,"گزارش‌ها"),(self.settings_tab,"تنظیمات")):
             self.tabs.add(page.master,text=title)
         for label, idx in (("⌂  داشبورد",0),("＋  پذیرش تعمیر",2),("🔧  پرونده‌های تعمیر",2),
-                           ("♟  مشتریان",1),("▣  انبار و کالا",3)):
+                           ("♟  مشتریان",1),("▣  انبار و کالا",3),("▤  فاکتورها",4),
+                           ("▥  گزارش‌ها",5),("⚙  تنظیمات",6)):
             tk.Button(sidebar, text=label, anchor="e", command=lambda n=idx:self.tabs.select(n),
                       bg="#0d2944", fg="#edf5ff", activebackground="#0757a8", activeforeground="#ffffff",
                       relief="flat", bd=0, font=("Tahoma",10,"bold"), padx=12, pady=13).pack(fill="x", padx=8, pady=4)
