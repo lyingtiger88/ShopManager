@@ -111,10 +111,10 @@ public final class MainActivity extends Activity {
         item.addView(icon);item.addView(label);container.addView(item,new LinearLayout.LayoutParams(0,-2,1));item.setOnClickListener(v -> action.run());
     }
     private void iconTile(LinearLayout row,String glyph,String label,int color,Runnable run) {
-        LinearLayout tile=new LinearLayout(this);tile.setOrientation(LinearLayout.VERTICAL);tile.setGravity(android.view.Gravity.CENTER);tile.setPadding(4,10,4,10);tile.setBackground(round(Color.WHITE,15));
+        LinearLayout tile=new LinearLayout(this);tile.setOrientation(LinearLayout.VERTICAL);tile.setGravity(android.view.Gravity.CENTER);tile.setPadding(4,10,4,10);tile.setBackground(gradient(new int[]{color,Color.rgb(6,29,51)},15));
         LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,112,1);p.setMargins(4,4,4,4);row.addView(tile,p);
         TextView icon=text(glyph);icon.setTextSize(27);icon.setTextColor(color);icon.setGravity(android.view.Gravity.CENTER);
-        TextView caption=text(label);caption.setTextSize(12);caption.setTypeface(null,Typeface.BOLD);caption.setGravity(android.view.Gravity.CENTER);
+        TextView caption=text(label);caption.setTextSize(11);caption.setTextColor(Color.WHITE);caption.setTypeface(null,Typeface.BOLD);caption.setGravity(android.view.Gravity.CENTER);
         tile.addView(icon);tile.addView(caption);tile.setElevation(2*getResources().getDisplayMetrics().density);tile.setOnClickListener(v->run.run());
     }
     private void quickRow(String a,String b,String c) {
@@ -129,7 +129,7 @@ public final class MainActivity extends Activity {
     }
     private void reset(String heading) {
         body.removeAllViews();
-        TextView t=text(heading); t.setTextSize(19); t.setTextColor(navy); t.setTypeface(null, Typeface.BOLD);
+        TextView t=text(heading); t.setTextSize(19); t.setTextColor(Color.WHITE); t.setTypeface(null, Typeface.BOLD);
         body.addView(t);
     }
     private void status() {
@@ -155,29 +155,44 @@ public final class MainActivity extends Activity {
         GradientDrawable d=new GradientDrawable();d.setColor(color);
         d.setCornerRadius(radiusDp*getResources().getDisplayMetrics().density);return d;
     }
-    private void metricCard(String title,String value,int color,String glyph) {
-        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.HORIZONTAL);card.setGravity(android.view.Gravity.CENTER_VERTICAL);card.setPadding(7,9,7,9);card.setBackground(round(Color.WHITE,16));
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,92,1);p.setMargins(3,3,3,3);
-        TextView badge=text(glyph);badge.setTextSize(23);badge.setTextColor(Color.WHITE);badge.setGravity(android.view.Gravity.CENTER);badge.setBackground(round(color,40));card.addView(badge,new LinearLayout.LayoutParams(48,48));
+    private void metricCard(LinearLayout target,String title,String value,int color,String glyph) {
+        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.HORIZONTAL);card.setGravity(android.view.Gravity.CENTER_VERTICAL);card.setPadding(8,7,8,7);
+        card.setBackground(gradient(new int[]{Color.rgb(12,42,70),Color.rgb(5,25,45)},15));
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,82,1);p.setMargins(4,4,4,4);
+        TextView badge=text(glyph);badge.setTextSize(23);badge.setTextColor(Color.WHITE);badge.setGravity(android.view.Gravity.CENTER);
+        badge.setBackground(round(color,40));card.addView(badge,new LinearLayout.LayoutParams(43,43));
         LinearLayout labels=new LinearLayout(this);labels.setOrientation(LinearLayout.VERTICAL);labels.setGravity(android.view.Gravity.CENTER);
-        TextView v=text(value);v.setTextSize(22);v.setTextColor(ink);v.setTypeface(null,Typeface.BOLD);TextView t=text(title);t.setTextSize(10);t.setGravity(android.view.Gravity.CENTER);
-        labels.addView(v);labels.addView(t);card.addView(labels,new LinearLayout.LayoutParams(0,-2,1));body.addView(card,p);card.setElevation(2*getResources().getDisplayMetrics().density);
+        TextView v=text(value);v.setTextSize(21);v.setTextColor(Color.WHITE);v.setTypeface(null,Typeface.BOLD);
+        TextView t=text(title);t.setTextSize(10);t.setTextColor(Color.rgb(190,211,235));t.setGravity(android.view.Gravity.CENTER);
+        labels.addView(v);labels.addView(t);card.addView(labels,new LinearLayout.LayoutParams(0,-2,1));target.addView(card,p);
     }
     private void homePage() {
         reset("داشبورد مدیریت تعمیرگاه");
-        LinearLayout metrics1=new LinearLayout(this);metrics1.setOrientation(LinearLayout.HORIZONTAL);body.addView(metrics1);
         JSONArray jobs=snapshot.optJSONArray("jobs"), people=snapshot.optJSONArray("customers"), items=snapshot.optJSONArray("items");
-        metricCard("تعمیرات جاری",String.valueOf(jobs==null?0:jobs.length()),blue,"🔧");metricCard("فروش امروز","۰",Color.rgb(25,155,100),"🛒");
+        LinearLayout metrics1=new LinearLayout(this);metrics1.setOrientation(LinearLayout.HORIZONTAL);body.addView(metrics1);
+        metricCard(metrics1,"تعمیرات فعال",String.valueOf(jobs==null?0:jobs.length()),Color.rgb(0,210,235),"🔧");
+        metricCard(metrics1,"مشتریان",String.valueOf(people==null?0:people.length()),Color.rgb(20,195,120),"♟");
         LinearLayout metrics2=new LinearLayout(this);metrics2.setOrientation(LinearLayout.HORIZONTAL);body.addView(metrics2);
-        metricCard("مشتریان",String.valueOf(people==null?0:people.length()),Color.rgb(125,65,210),"♟");metricCard("کالا در انبار",String.valueOf(items==null?0:items.length()),Color.rgb(230,145,20),"▣");
-        TextView quick=text("دسترسی سریع");quick.setTypeface(null,Typeface.BOLD);quick.setTextSize(17);body.addView(quick);
-        quickRow("فاکتور","ثبت تعمیر","کالاها");quickRow("مشتریان","گزارش‌ها","تنظیمات");
-        LinearLayout info=new LinearLayout(this);info.setOrientation(LinearLayout.VERTICAL);info.setPadding(12,10,12,10);info.setBackground(round(Color.WHITE,14));
-        TextView infoTitle=text("◷  تازه‌ترین فعالیت‌ها");infoTitle.setTypeface(null,Typeface.BOLD);infoTitle.setTextSize(16);info.addView(infoTitle);
-        info.addView(text("•  در انتظار ارسال: "+pending.length()+" مورد"));info.addView(text("•  آخرین همگام‌سازی: "+(snapshot.length()==0?"هنوز انجام نشده":"اطلاعات دریافت شده")));body.addView(info);
-        TextView recent=text("آخرین پرونده‌ها");recent.setTextSize(16);recent.setTypeface(null,Typeface.BOLD);body.addView(recent);
-        if(jobs!=null)for(int i=Math.max(0,jobs.length()-4);i<jobs.length();i++){JSONObject j=jobs.optJSONObject(i);if(j!=null){LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(10,8,10,8);card.setBackground(round(Color.WHITE,12));card.addView(text("🔧  "+j.optString("order_code")+"  |  "+j.optString("customer_name")));card.addView(text(j.optString("device")+"  |  "+j.optString("status")));body.addView(card);}}
-        action("⚙  اتصال و همگام‌سازی با نسخه ویندوز",this::connectionPage);
+        metricCard(metrics2,"موجودی کالا",String.valueOf(items==null?0:items.length()),Color.rgb(255,166,20),"▣");
+        metricCard(metrics2,"پذیرش امروز","۰",Color.rgb(0,126,255),"▤");
+        TextView quick=text("عملیات سریع");quick.setTypeface(null,Typeface.BOLD);quick.setTextSize(17);quick.setTextColor(Color.WHITE);body.addView(quick);
+        quickRow("فاکتور","پذیرش جدید","کالاها");
+        LinearLayout latest=new LinearLayout(this);latest.setOrientation(LinearLayout.VERTICAL);latest.setPadding(10,8,10,8);
+        latest.setBackground(gradient(new int[]{Color.rgb(11,39,65),Color.rgb(5,24,43)},15));body.addView(latest);
+        TextView recent=text("آخرین پرونده‌ها");recent.setTextSize(16);recent.setTypeface(null,Typeface.BOLD);recent.setTextColor(Color.WHITE);latest.addView(recent);
+        if(jobs!=null)for(int i=Math.max(0,jobs.length()-4);i<jobs.length();i++){JSONObject j=jobs.optJSONObject(i);if(j!=null){
+            LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.HORIZONTAL);card.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            card.setPadding(7,5,7,5);card.setBackground(round(Color.rgb(15,46,72),11));
+            LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.setMargins(2,4,2,4);latest.addView(card,cp);
+            TextView code=text(j.optString("order_code"));code.setTextColor(Color.WHITE);code.setTextSize(10);card.addView(code,new LinearLayout.LayoutParams(0,-2,1));
+            TextView detail=text(j.optString("device")+"  |  "+j.optString("status"));detail.setTextColor(Color.rgb(215,231,248));detail.setTextSize(10);card.addView(detail);
+        }}
+        LinearLayout alerts=new LinearLayout(this);alerts.setOrientation(LinearLayout.VERTICAL);alerts.setPadding(10,8,10,8);
+        alerts.setBackground(gradient(new int[]{Color.rgb(11,39,65),Color.rgb(5,24,43)},15));
+        LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,-2);ap.setMargins(0,7,0,4);body.addView(alerts,ap);
+        TextView at=text("🔔  یادآوری و هشدارها");at.setTextColor(Color.WHITE);at.setTypeface(null,Typeface.BOLD);alerts.addView(at);
+        alerts.addView(text("در انتظار ارسال: "+pending.length()+" مورد"));
+        action("اتصال و همگام‌سازی با نسخه ویندوز",this::connectionPage);
     }
 
     private void connectionPage() {
