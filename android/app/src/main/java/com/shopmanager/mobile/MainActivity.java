@@ -268,16 +268,17 @@ public final class MainActivity extends Activity {
             applyMobileTheme(theme);toast("تنظیمات ذخیره شد.");
         });
         body.addView(text("امنیت و رمز عبور برنامه"));
+        EditText current=field("رمز فعلی (در صورت وجود)","");
         EditText pass=field("رمز جدید (حداقل ۶ کاراکتر)","");
         action("ثبت یا تغییر رمز برنامه",()->{
             String value=pass.getText().toString();
-            if(value.length()<6){toast("رمز باید حداقل ۶ کاراکتر باشد.");return;}
-            if(prefs.contains("password_hash")&&!verifyMobilePassword(value)){
-                toast("برای تغییر رمز فعلی، ابتدا رمز فعلی را در کادر وارد کنید.");return;
+            if(value.length()<6){toast("رمز جدید باید حداقل ۶ کاراکتر باشد.");return;}
+            if(prefs.contains("password_hash")&&!verifyMobilePassword(current.getText().toString())){
+                toast("رمز فعلی صحیح نیست.");return;
             }
-            storeMobilePassword(value);pass.setText("");toast("رمز برنامه ذخیره شد.");
+            storeMobilePassword(value);current.setText("");pass.setText("");toast("رمز برنامه ذخیره شد.");
         });
-        body.addView(text("رمز برای عملیات مدیریتی این دستگاه نگهداری می‌شود. عملیات حذف/ویرایش از طریق نسخه مستر ویندوز مدیریت می‌شود."));
+        body.addView(text("تغییرات و حذف اطلاعات اصلی فقط روی نسخه مستر ویندوز انجام می‌شود؛ این رمز محلی جایگزین احراز هویت مستر نیست."));
     }
     private void applyMobileTheme(String theme){
         int bg=Color.rgb(4,18,34),panel=Color.rgb(12,43,70),fg=Color.WHITE;
