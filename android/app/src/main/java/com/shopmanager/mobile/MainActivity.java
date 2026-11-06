@@ -28,6 +28,10 @@ import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 
 public final class MainActivity extends Activity {
     private SharedPreferences prefs;
@@ -76,11 +80,13 @@ public final class MainActivity extends Activity {
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);
         root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(2,7,2,12);scroll.addView(body);
-        LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);
-        nav.setPadding(4,5,4,5);nav.setBackground(gradient(new int[]{Color.rgb(5,24,43),Color.rgb(9,37,61)},18));
-        root.addView(nav,new LinearLayout.LayoutParams(-1,-2));
-        tab(nav,"خانه",()->homePage());tab(nav,"پرونده‌ها",()->jobsPage());tab(nav,"＋",()->intakePage());
-        tab(nav,"کالاها",()->inventoryPage());tab(nav,"مشتریان",()->customersPage());
+        HorizontalScrollView navScroll=new HorizontalScrollView(this);navScroll.setHorizontalScrollBarEnabled(false);
+        navScroll.setBackground(gradient(new int[]{Color.rgb(5,24,43),Color.rgb(9,37,61)},18));
+        root.addView(navScroll,new LinearLayout.LayoutParams(-1,-2));
+        LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);nav.setPadding(4,5,4,5);navScroll.addView(nav);
+        tab(nav,"خانه",()->homePage());tab(nav,"پذیرش",()->intakePage());tab(nav,"پرونده‌ها",()->jobsPage());
+        tab(nav,"مشتریان",()->customersPage());tab(nav,"کالاها",()->inventoryPage());
+        tab(nav,"فاکتور",()->invoicePage());tab(nav,"گزارش",()->reportsPage());tab(nav,"تنظیمات",()->settingsPage());
         status();
         homePage();
         if(!url().isEmpty() && !key().isEmpty()) synchronize();
@@ -194,6 +200,110 @@ public final class MainActivity extends Activity {
         TextView at=text("🔔  یادآوری و هشدارها");at.setTextColor(Color.WHITE);at.setTypeface(null,Typeface.BOLD);alerts.addView(at);
         alerts.addView(text("در انتظار ارسال: "+pending.length()+" مورد"));
         action("اتصال و همگام‌سازی با نسخه ویندوز",this::connectionPage);
+    }
+
+
+    private String currency(){return prefs.getString("currency","تومان");}
+    private String moneyText(long value){return String.format(java.util.Locale.US,"%,d",value)+" "+currency();}
+    private void reportsPage(){
+        reset("گزارش‌های مدیریتی");
+        JSONArray jobs=snapshot.optJSONArray("jobs"),customers=snapshot.optJSONArray("customers"),items=snapshot.optJSONArray("items");
+        int active=0,done=0,low=0;long paid=0;
+        if(jobs!=null)for(int i=0;i<jobs.length();i++){JSONObject j=jobs.optJSONObject(i);if(j==null)continue;
+            String st=j.optString("status");if(st.equals("تحویل شده")||st.equals("تکمیل شده"))done++;else active++;paid+=j.optLong("paid");}
+        if(items!=null)for(int i=0;i<items.length();i++){JSONObject it=items.optJSONObject(i);if(it!=null&&it.optInt("qty")<=2)low++;}
+        reportCard("کل پرونده‌ها",String.valueOf(jobs==null?0:jobs.length()));
+        reportCard("پرونده‌های فعال",String.valueOf(active));reportCard("تحویل‌شده",String.valueOf(done));
+        reportCard("مشتریان",String.valueOf(customers==null?0:customers.length()));
+        reportCard("مجموع پرداخت ثبت‌شده",moneyText(paid));reportCard("اقلام کم‌موجودی",String.valueOf(low));
+        action("به‌روزرسانی از سیستم اصلی",this::synchronize);
+    }
+    private void reportCard(String title,String value){
+        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(14,10,14,10);
+        card.setBackground(gradient(new int[]{Color.rgb(12,43,70),Color.rgb(5,24,43)},14));
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(3,5,3,5);body.addView(card,p);
+        TextView t=text(title);t.setTextColor(Color.rgb(177,203,227));card.addView(t);
+        TextView v=text(value);v.setTextSize(20);v.setTextColor(Color.WHITE);v.setTypeface(null,Typeface.BOLD);card.addView(v);
+    }
+    private void invoicePage(){
+        reset("فاکتورها و صورت‌حساب‌ها");
+        JSONArray jobs=snapshot.optJSONArray("jobs");
+        if(jobs==null||jobs.length()==0){body.addView(text("پرونده‌ای برای صدور فاکتور دریافت نشده است."));return;}
+        for(int i=0;i<jobs.length();i++){
+            JSONObject j=jobs.optJSONObject(i);if(j==null)continue;
+            long parts=j.optLong("estimate_parts"),labor=j.optLong("labor"),discount=j.optLong("discount"),paid=j.optLong("paid");
+            long total=Math.max(0,parts+labor-discount);
+            LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(12,10,12,10);
+            card.setBackground(gradient(new int[]{Color.rgb(12,43,70),Color.rgb(5,24,43)},14));
+            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(3,5,3,5);body.addView(card,p);
+            TextView h=text(j.optString("order_code")+"  |  "+j.optString("customer_name"));h.setTextColor(Color.WHITE);h.setTypeface(null,Typeface.BOLD);card.addView(h);
+            card.addView(text(j.optString("device")+"  |  "+j.optString("status")));
+            card.addView(text("قطعات برآوردی: "+moneyText(parts)+"   دستمزد: "+moneyText(labor)));
+            card.addView(text("تخفیف: "+moneyText(discount)+"   جمع: "+moneyText(total)));
+            card.addView(text("پرداخت: "+moneyText(paid)+"   مانده: "+moneyText(Math.max(0,total-paid))));
+            actionIn(card,"نمایش صورت‌حساب",()->new AlertDialog.Builder(this).setTitle("صورت‌حساب "+j.optString("order_code"))
+                .setMessage("مشتری: "+j.optString("customer_name")+"\\nدستگاه: "+j.optString("device")+"\\nقطعات: "+moneyText(parts)
+                +"\\nدستمزد: "+moneyText(labor)+"\\nتخفیف: "+moneyText(discount)+"\\nمبلغ نهایی: "+moneyText(total)
+                +"\\nپرداخت: "+moneyText(paid)+"\\nمانده: "+moneyText(Math.max(0,total-paid)))
+                .setPositiveButton("بستن",null).show());
+        }
+    }
+    private void actionIn(LinearLayout parent,String label,Runnable run){
+        Button b=new Button(this);b.setText(label);b.setTextColor(Color.WHITE);b.setAllCaps(false);b.setBackground(round(blue,12));
+        parent.addView(b,new LinearLayout.LayoutParams(-1,-2));b.setOnClickListener(v->run.run());
+    }
+    private void settingsPage(){
+        reset("تنظیمات برنامه");
+        body.addView(text("ظاهر و پوسته"));
+        Spinner themes=new Spinner(this);String[] themeNames={"سرمه‌ای نئونی","تیره ساده","روشن"};
+        themes.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,themeNames));
+        String current=prefs.getString("theme",themeNames[0]);for(int i=0;i<themeNames.length;i++)if(themeNames[i].equals(current))themes.setSelection(i);
+        body.addView(themes,new LinearLayout.LayoutParams(-1,-2));
+        body.addView(text("واحد مالی"));
+        Spinner currencies=new Spinner(this);String[] units={"تومان","ریال"};currencies.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,units));
+        currencies.setSelection("ریال".equals(currency())?1:0);body.addView(currencies,new LinearLayout.LayoutParams(-1,-2));
+        action("ذخیره تنظیمات",()->{
+            String theme=String.valueOf(themes.getSelectedItem()),unit=String.valueOf(currencies.getSelectedItem());
+            prefs.edit().putString("theme",theme).putString("currency",unit).apply();
+            applyMobileTheme(theme);toast("تنظیمات ذخیره شد.");
+        });
+        body.addView(text("امنیت و رمز عبور برنامه"));
+        EditText pass=field("رمز جدید (حداقل ۶ کاراکتر)","");
+        action("ثبت یا تغییر رمز برنامه",()->{
+            String value=pass.getText().toString();
+            if(value.length()<6){toast("رمز باید حداقل ۶ کاراکتر باشد.");return;}
+            if(prefs.contains("password_hash")&&!verifyMobilePassword(value)){
+                toast("برای تغییر رمز فعلی، ابتدا رمز فعلی را در کادر وارد کنید.");return;
+            }
+            storeMobilePassword(value);pass.setText("");toast("رمز برنامه ذخیره شد.");
+        });
+        body.addView(text("رمز برای عملیات مدیریتی این دستگاه نگهداری می‌شود. عملیات حذف/ویرایش از طریق نسخه مستر ویندوز مدیریت می‌شود."));
+    }
+    private void applyMobileTheme(String theme){
+        int bg=Color.rgb(4,18,34),panel=Color.rgb(12,43,70),fg=Color.WHITE;
+        if("تیره ساده".equals(theme)){bg=Color.rgb(25,29,36);panel=Color.rgb(42,48,58);}
+        if("روشن".equals(theme)){bg=Color.rgb(237,242,248);panel=Color.WHITE;fg=Color.rgb(25,39,58);}
+        pale=bg;ink=fg;root.setBackgroundColor(bg);body.setBackgroundColor(bg);
+        if("روشن".equals(theme))blue=Color.rgb(24,91,190);else blue=Color.rgb(0,126,255);
+        if(body.getChildCount()>0)toast("تم جدید برای صفحات بعدی اعمال شد.");
+    }
+    private void storeMobilePassword(String password){
+        try{
+            byte[] salt=new byte[16];new SecureRandom().nextBytes(salt);
+            PBEKeySpec spec=new PBEKeySpec(password.toCharArray(),salt,180000,256);
+            byte[] hash=SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded();
+            prefs.edit().putString("password_salt",android.util.Base64.encodeToString(salt,android.util.Base64.NO_WRAP))
+                .putString("password_hash",android.util.Base64.encodeToString(hash,android.util.Base64.NO_WRAP)).apply();
+        }catch(Exception e){toast("خطا در ذخیره رمز: "+e.getMessage());}
+    }
+    private boolean verifyMobilePassword(String password){
+        try{
+            byte[] salt=android.util.Base64.decode(prefs.getString("password_salt",""),android.util.Base64.NO_WRAP);
+            byte[] expected=android.util.Base64.decode(prefs.getString("password_hash",""),android.util.Base64.NO_WRAP);
+            PBEKeySpec spec=new PBEKeySpec(password.toCharArray(),salt,180000,256);
+            byte[] actual=SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded();
+            return MessageDigest.isEqual(expected,actual);
+        }catch(Exception e){return false;}
     }
 
     private void connectionPage() {
