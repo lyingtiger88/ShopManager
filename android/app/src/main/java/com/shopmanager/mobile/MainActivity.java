@@ -33,7 +33,7 @@ public final class MainActivity extends Activity {
     private SharedPreferences prefs;
     private LinearLayout root, body;
     private TextView status;
-    private int navy=Color.rgb(13,27,49), blue=Color.rgb(24,91,190), pale=Color.rgb(241,245,251), ink=Color.rgb(25,39,58);
+    private int navy=Color.rgb(4,18,34), blue=Color.rgb(0,126,255), pale=Color.rgb(4,18,34), ink=Color.rgb(243,247,255);
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private JSONObject snapshot = new JSONObject();
     private JSONArray pending = new JSONArray();
@@ -56,33 +56,31 @@ public final class MainActivity extends Activity {
         getWindow().setNavigationBarColor(navy);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(14,12,14,8);
+        root.setPadding(12,10,12,7);
         root.setBackgroundColor(pale);
         root.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         setContentView(root);
         LinearLayout header=new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        header.setPadding(14,12,14,12);
-        GradientDrawable headerBg=new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[]{Color.rgb(20,105,225),Color.rgb(13,53,135)});
-        headerBg.setCornerRadius(18*getResources().getDisplayMetrics().density);header.setBackground(headerBg);
-        root.addView(header,new LinearLayout.LayoutParams(-1,-2));
-        TextView gear=text("⚙");gear.setTextColor(Color.WHITE);gear.setTextSize(27);header.addView(gear);
-        LinearLayout brandBlock=new LinearLayout(this);brandBlock.setOrientation(LinearLayout.VERTICAL);brandBlock.setGravity(android.view.Gravity.CENTER);header.addView(brandBlock,new LinearLayout.LayoutParams(0,-2,1));
-        TextView role=text("مدیریت فروشگاه و تعمیرگاه");role.setTextColor(Color.rgb(224,237,255));role.setTextSize(12);role.setGravity(android.view.Gravity.CENTER);
-        TextView brand=text("ShopManager");brand.setTextColor(Color.WHITE);brand.setTextSize(22);brand.setTypeface(null,Typeface.BOLD);brand.setGravity(android.view.Gravity.CENTER);
-        brandBlock.addView(role);brandBlock.addView(brand);TextView shop=text("🏪");shop.setTextSize(27);header.addView(shop);
-        status=text("");status.setTextColor(ink);status.setTextSize(12);root.addView(status);
-        ScrollView scroll=new ScrollView(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);header.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        header.setPadding(12,9,12,9);
+        GradientDrawable headerBg=gradient(new int[]{Color.rgb(3,15,29),Color.rgb(8,34,58)},18);
+        header.setBackground(headerBg);root.addView(header,new LinearLayout.LayoutParams(-1,-2));
+        TextView menu=text("☰");menu.setTextColor(Color.WHITE);menu.setTextSize(24);header.addView(menu);
+        LinearLayout brandBlock=new LinearLayout(this);brandBlock.setOrientation(LinearLayout.VERTICAL);brandBlock.setGravity(android.view.Gravity.CENTER);
+        header.addView(brandBlock,new LinearLayout.LayoutParams(0,-2,1));
+        TextView brand=text("⚙ ShopManager");brand.setTextColor(Color.rgb(255,202,65));brand.setTextSize(22);brand.setTypeface(null,Typeface.BOLD);brand.setGravity(android.view.Gravity.CENTER);
+        TextView role=text("مدیریت تعمیرگاه موبایل");role.setTextColor(Color.rgb(225,237,255));role.setTextSize(11);role.setGravity(android.view.Gravity.CENTER);
+        brandBlock.addView(brand);brandBlock.addView(role);
+        TextView bell=text("♟  ۳");bell.setTextColor(Color.WHITE);bell.setTextSize(17);header.addView(bell);
+        status=text("");status.setTextColor(Color.rgb(165,194,220));status.setTextSize(10);status.setPadding(5,2,5,2);root.addView(status);
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);
         root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-        body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(2,8,2,12);scroll.addView(body);
+        body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(2,7,2,12);scroll.addView(body);
         LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);
-        nav.setPadding(4,6,4,6);nav.setBackground(round(Color.WHITE,18));
+        nav.setPadding(4,5,4,5);nav.setBackground(gradient(new int[]{Color.rgb(5,24,43),Color.rgb(9,37,61)},18));
         root.addView(nav,new LinearLayout.LayoutParams(-1,-2));
-        tab(nav,"خانه",()->homePage());tab(nav,"مشتریان",()->customersPage());tab(nav,"پذیرش",()->intakePage());
-        tab(nav,"پرونده‌ها",()->jobsPage());tab(nav,"انبار",()->inventoryPage());
-        tab(nav,"اتصال",()->connectionPage());
+        tab(nav,"خانه",()->homePage());tab(nav,"پرونده‌ها",()->jobsPage());tab(nav,"＋",()->intakePage());
+        tab(nav,"کالاها",()->inventoryPage());tab(nav,"مشتریان",()->customersPage());
         status();
         homePage();
         if(!url().isEmpty() && !key().isEmpty()) synchronize();
@@ -98,17 +96,18 @@ public final class MainActivity extends Activity {
         e.setSingleLine(true); e.setTextSize(15); e.setHint(hint);
         e.setText(initial); e.setTextDirection(View.TEXT_DIRECTION_RTL);
         e.setPadding(14,12,14,12);
-        e.setBackground(round(Color.WHITE,12));
+        e.setTextColor(Color.WHITE);e.setHintTextColor(Color.rgb(151,177,202));
+        e.setBackground(round(Color.rgb(15,43,68),12));
         LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);
         params.setMargins(3,4,3,4);
         body.addView(e, params);
         return e;
     }
     private void tab(LinearLayout container, String name, Runnable action) {
-        String glyph="خانه".equals(name)?"⌂":"پذیرش".equals(name)?"🔧":"پرونده‌ها".equals(name)?"▤":"انبار".equals(name)?"▣":"اتصال".equals(name)?"⚙":"مشتریان".equals(name)?"♟":"•";
-        LinearLayout item=new LinearLayout(this);item.setOrientation(LinearLayout.VERTICAL);item.setGravity(android.view.Gravity.CENTER);item.setPadding(2,4,2,4);
-        TextView icon=text(glyph);icon.setTextSize(19);icon.setTextColor(blue);icon.setGravity(android.view.Gravity.CENTER);
-        TextView label=text(name);label.setTextSize(10);label.setTextColor(ink);label.setGravity(android.view.Gravity.CENTER);
+        String glyph="خانه".equals(name)?"⌂":"پذیرش".equals(name)?"🔧":"پرونده‌ها".equals(name)?"▤":"انبار".equals(name)||"کالاها".equals(name)?"▣":"اتصال".equals(name)?"⚙":"مشتریان".equals(name)?"♟":"＋";
+        LinearLayout item=new LinearLayout(this);item.setOrientation(LinearLayout.VERTICAL);item.setGravity(android.view.Gravity.CENTER);item.setPadding(2,3,2,3);
+        TextView icon=text(glyph);icon.setTextSize(19);icon.setTextColor(Color.rgb(190,211,235));icon.setGravity(android.view.Gravity.CENTER);
+        TextView label=text(name);label.setTextSize(9);label.setTextColor(Color.rgb(190,211,235));label.setGravity(android.view.Gravity.CENTER);
         item.addView(icon);item.addView(label);container.addView(item,new LinearLayout.LayoutParams(0,-2,1));item.setOnClickListener(v -> action.run());
     }
     private void iconTile(LinearLayout row,String glyph,String label,int color,Runnable run) {
@@ -147,6 +146,11 @@ public final class MainActivity extends Activity {
     private String url() { return prefs.getString("url","").trim().replaceAll("/+$",""); }
     private String key() { return prefs.getString("key","").trim(); }
 
+    private GradientDrawable gradient(int[] colors,int radiusDp) {
+        GradientDrawable d=new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,colors);
+        d.setCornerRadius(radiusDp*getResources().getDisplayMetrics().density);
+        d.setStroke((int)(1*getResources().getDisplayMetrics().density),Color.rgb(20,78,120));return d;
+    }
     private GradientDrawable round(int color,int radiusDp) {
         GradientDrawable d=new GradientDrawable();d.setColor(color);
         d.setCornerRadius(radiusDp*getResources().getDisplayMetrics().density);return d;
