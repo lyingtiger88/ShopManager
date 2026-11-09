@@ -452,8 +452,9 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("ShopManager | مدیریت فروشگاه و تعمیرگاه")
-        self.geometry("1100x730")
-        self.minsize(890, 560)
+        self.geometry("1200x800")
+        self.minsize(680, 480)
+        self.bind("<Configure>", self._on_window_resize)
         style = ttk.Style(self)
         if "clam" in style.theme_names():
             style.theme_use("clam")
@@ -490,6 +491,7 @@ class App(tk.Tk):
         sidebar.pack(side="right", fill="y", padx=(8,0)); sidebar.pack_propagate(False)
         tk.Label(sidebar, text="ناوبری", bg="#071d32", fg="#f4c76b",
                  font=("Tahoma", 12, "bold")).pack(fill="x", pady=14)
+        self.responsive_pages=[]
         self.tabs = ttk.Notebook(shell)
         self.tabs.pack(side="left", fill="both", expand=True)
         self.dashboard_tab = self.scrollable_tab("داشبورد")
@@ -502,6 +504,7 @@ class App(tk.Tk):
         for page,title in ((self.dashboard_tab,"داشبورد"),(self.ctab,"مشتریان"),(self.jtab,"پذیرش و پرونده‌ها"),
             (self.itab,"انبار و کالا"),(self.invoice_tab,"فاکتورها"),(self.reports_tab,"گزارش‌ها"),(self.settings_tab,"تنظیمات")):
             self.tabs.add(page.master,text=title)
+            self.responsive_pages.append(page)
         for label, idx in (("⌂  داشبورد",0),("＋  پذیرش تعمیر",2),("🔧  پرونده‌های تعمیر",2),
                            ("♟  مشتریان",1),("▣  انبار و کالا",3),("▤  فاکتورها",4),
                            ("▥  گزارش‌ها",5),("⚙  تنظیمات",6)):
@@ -607,15 +610,36 @@ class App(tk.Tk):
         shell=ttk.Frame(self.tabs)
         canvas=tk.Canvas(shell,bg="#06182b",highlightthickness=0)
         vs=ttk.Scrollbar(shell,orient="vertical",command=canvas.yview)
-        hs=ttk.Scrollbar(shell,orient="horizontal",command=canvas.xview)
-        canvas.configure(yscrollcommand=vs.set,xscrollcommand=hs.set)
-        vs.pack(side="right",fill="y");hs.pack(side="bottom",fill="x");canvas.pack(side="left",fill="both",expand=True)
-        inner=tk.Frame(canvas,bg="#06182b");window=canvas.create_window((0,0),window=inner,anchor="nw")
+        canvas.configure(yscrollcommand=vs.set)
+        vs.pack(side="right",fill="y");canvas.pack(side="left",fill="both",expand=True)
+        inner=tk.Frame(canvas,bg="#06182b")
+        window=canvas.create_window((0,0),window=inner,anchor="nw")
         inner.bind("<Configure>",lambda _e:canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.bind("<Configure>",lambda e:canvas.itemconfigure(window,width=max(e.width,inner.winfo_reqwidth())))
+        canvas.bind("<Configure>",lambda e:canvas.itemconfigure(window,width=e.width))
         canvas.bind_all("<MouseWheel>",lambda e:canvas.yview_scroll(int(-e.delta/120),"units"))
         inner.master=shell
+        inner.canvas=canvas
         return inner
+
+    def _on_window_resize(self,event):
+        if event.widget is not self:return
+        width=max(680,event.width)
+        # Keep tab content constrained to the viewport; no page-level horizontal scrolling.
+        for page in getattr(self,"responsive_pages",[]):
+            try:page.canvas.configure(width=width-36)
+            except (tk.TclError,AttributeError):pass
+        if hasattr(self,"dashboard_tab"):
+            self.after_idle(self._adapt_dashboard)
+
+    def _adapt_dashboard(self):
+        if not hasattr(self,"dashboard_tab"):return
+        width=self.dashboard_tab.winfo_width()
+        if width<760 and getattr(self,"_dashboard_compact",False) is False:
+            self._dashboard_compact=True
+            self.make_dashboard()
+        elif width>=760 and getattr(self,"_dashboard_compact",False) is True:
+            self._dashboard_compact=False
+            self.make_dashboard()
 
     def require_password(self,purpose):
         if not setting("password_hash"):
@@ -762,13 +786,23 @@ class App(tk.Tk):
         wrap = ttk.Frame(parent)
         wrap.pack(fill="both", expand=True, padx=10, pady=10)
         tree = ttk.Treeview(wrap, columns=cols, show="headings", selectmode="browse")
-        for i, (key, header) in enumerate(zip(cols, headers)):
-            tree.heading(key, text=header)
-            tree.column(key, width=(widths or {}).get(key, 145), anchor="center")
-        scrollbar = ttk.Scrollbar(wrap, orient="vertical", command=tree.yview)
+        base_widths=[(widths or {}).get(key,145) for key in cols]
+        for key,header in zip(cols,headers):
+            tree.heading(key,text=header)
+            tree.column(key,width=110,minwidth=55,anchor="center",stretch=True)
+        scrollbar=ttk.Scrollbar(wrap,orient="vertical",command=tree.yview)
         tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        tree.pack(fill="both", expand=True)
+        scrollbar.pack(side="right",fill="y")
+        tree.pack(fill="both",expand=True)
+        def fit_columns(_event=None):
+            available=max(320,tree.winfo_width()-8)
+            total=sum(base_widths)
+            # Proportional widths shrink to the visible viewport instead of forcing horizontal scrolling.
+            for key,base in zip(cols,base_widths):
+                target=max(55,int(available*base/total))
+                tree.column(key,width=target,minwidth=48,stretch=True)
+        tree.bind("<Configure>",fit_columns,add="+")
+        tree.after_idle(fit_columns)
         return tree
 
     def selected(self, tree, label):
