@@ -492,6 +492,7 @@ class App(tk.Tk):
         tk.Label(sidebar, text="ناوبری", bg="#071d32", fg="#f4c76b",
                  font=("Tahoma", 12, "bold")).pack(fill="x", pady=14)
         self.responsive_pages=[]
+        self._dashboard_compact=False
         self.tabs = ttk.Notebook(shell)
         self.tabs.pack(side="left", fill="both", expand=True)
         self.dashboard_tab = self.scrollable_tab("داشبورد")
@@ -555,8 +556,9 @@ class App(tk.Tk):
             tk.Label(box,text=title,bg="#102d49",fg="#c5d9ef",font=("Tahoma",9)).pack(anchor="e",pady=(9,0))
             tk.Label(box,text=value,bg="#102d49",fg="#ffffff",font=("Tahoma",14,"bold")).pack(anchor="e",pady=(1,8))
         middle=tk.Frame(self.dashboard_tab,bg=p["bg"]);middle.pack(fill="both",expand=True,padx=10)
-        left=tk.Frame(middle,bg=p["bg"]);left.pack(side="left",fill="both",expand=True,padx=4)
-        right=tk.Frame(middle,bg=p["bg"]);right.pack(side="right",fill="both",expand=True,padx=4)
+        dashboard_side="top" if getattr(self,"_dashboard_compact",False) else "left"
+        left=tk.Frame(middle,bg=p["bg"]);left.pack(side=dashboard_side,fill="both",expand=True,padx=4,pady=3)
+        right=tk.Frame(middle,bg=p["bg"]);right.pack(side=dashboard_side,fill="both",expand=True,padx=4,pady=3)
         chart=tk.Frame(left,bg="#0b2239",highlightbackground="#14517c",highlightthickness=1)
         chart.pack(fill="both",expand=True,pady=5)
         tk.Label(chart,text="روند پذیرش و تحویل (۳۰ روز گذشته)",bg="#0b2239",fg="#ffffff",
@@ -574,10 +576,13 @@ class App(tk.Tk):
         tk.Label(lower,text="عملیات سریع",bg="#0b2239",fg="#ffffff",font=("Tahoma",12,"bold")).pack(anchor="e",padx=12,pady=8)
         actions=[("♟ مشتری جدید",1,p["cyan"]),("＋ پذیرش جدید",2,p["blue"]),("▣ انبار و کالا",3,p["green"]),("＄ امور مالی",2,p["orange"]),("▤ گزارش‌ها",2,p["purple"])]
         row=tk.Frame(lower,bg="#0b2239");row.pack(fill="x",padx=6,pady=8)
-        for label,idx,color in actions:
-            tk.Button(row,text=label,command=lambda n=idx:self.tabs.select(n),bg="#102d49",fg=color,
+        columns=2 if getattr(self,"_dashboard_compact",False) else min(5,max(2,len(actions)))
+        for index,(label,idx,color) in enumerate(actions):
+            button=tk.Button(row,text=label,command=lambda n=idx:self.tabs.select(n),bg="#102d49",fg=color,
                       activebackground="#173b5c",activeforeground="#ffffff",relief="flat",
-                      font=("Tahoma",9,"bold"),padx=7,pady=16).pack(side="right",fill="x",expand=True,padx=3)
+                      font=("Tahoma",9,"bold"),padx=7,pady=12)
+            button.grid(row=index//columns,column=index%columns,sticky="ew",padx=3,pady=3)
+        for column in range(columns):row.grid_columnconfigure(column,weight=1)
         recentbox=tk.Frame(right,bg="#0b2239",highlightbackground="#14517c",highlightthickness=1)
         recentbox.pack(fill="both",expand=True,pady=5)
         tk.Label(recentbox,text="آخرین پرونده‌ها",bg="#0b2239",fg="#ffffff",
