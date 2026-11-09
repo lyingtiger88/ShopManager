@@ -218,6 +218,26 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(dp(43),dp(3));sp.topMargin=dp(6);
         card.addView(strip,sp);
     }
+    private void addResponsiveMetrics(ArrayList<String[]> data){
+        int screenDp=(int)(getResources().getDisplayMetrics().widthPixels/getResources().getDisplayMetrics().density);
+        int columns=screenDp>=900?4:screenDp>=600?3:2;
+        int[] accents={Color.rgb(9,213,232),Color.rgb(26,222,133),Color.rgb(255,176,46),Color.rgb(186,115,253)};
+        for(int start=0;start<data.size();start+=columns){
+            LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);
+            body.addView(row,new LinearLayout.LayoutParams(-1,-2));
+            for(int col=0;col<columns;col++){
+                int index=start+col;
+                if(index<data.size()){
+                    String[] item=data.get(index);
+                    metricCard(row,item[0],item[1],accents[index%accents.length],item[2]);
+                }else{
+                    View spacer=new View(this);
+                    LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(1),1);
+                    p.setMargins(dp(4),dp(4),dp(4),dp(4));row.addView(spacer,p);
+                }
+            }
+        }
+    }
     private LinearLayout dashboardPanel(String title){
         LinearLayout outer=new LinearLayout(this);outer.setOrientation(LinearLayout.VERTICAL);
         outer.setPadding(dp(12),dp(10),dp(12),dp(12));
@@ -244,12 +264,12 @@ public final class MainActivity extends Activity {
         if(items!=null)for(int i=0;i<items.length();i++){
             JSONObject item=items.optJSONObject(i);if(item!=null&&item.optInt("qty")<=2)low++;
         }
-        LinearLayout first=new LinearLayout(this);first.setOrientation(LinearLayout.HORIZONTAL);body.addView(first);
-        metricCard(first,"تعمیرات فعال",String.valueOf(active),Color.rgb(9,213,232),"✚");
-        metricCard(first,"مشتریان",String.valueOf(customers==null?0:customers.length()),Color.rgb(26,222,133),"♙");
-        LinearLayout second=new LinearLayout(this);second.setOrientation(LinearLayout.HORIZONTAL);body.addView(second);
-        metricCard(second,"موجودی کالا",String.valueOf(items==null?0:items.length()),Color.rgb(255,176,46),"▣");
-        metricCard(second,"دریافتی ثبت‌شده",compactMoney(paid),Color.rgb(186,115,253),"﷼");
+        ArrayList<String[]> metricData=new ArrayList<>();
+        metricData.add(new String[]{"تعمیرات فعال",String.valueOf(active),"✚"});
+        metricData.add(new String[]{"مشتریان",String.valueOf(customers==null?0:customers.length()),"♙"});
+        metricData.add(new String[]{"موجودی کالا",String.valueOf(items==null?0:items.length()),"▣"});
+        metricData.add(new String[]{"دریافتی ثبت‌شده",compactMoney(paid),"﷼"});
+        addResponsiveMetrics(metricData);
 
         LinearLayout quick=dashboardPanel("عملیات سریع");
         // Keep quick actions inside their own card, not the root, to match the reference.
