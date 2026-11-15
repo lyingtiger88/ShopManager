@@ -1,0 +1,87 @@
+name: ShopManager Android signed upgrade APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signed-release:
+    name: Signed Android release (same certificate across updates)
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_B64: ${{ secrets.SHOPMANAGER_ANDROID_KEYSTORE_B64 }}
+      STORE_PASSWORD: ${{ secrets.SHOPMANAGER_ANDROID_STORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.SHOPMANAGER_ANDROID_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.SHOPMANAGER_ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+      - name: Verify signing secrets and reconstruct keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in KEYSTORE_B64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Missing secret: ${name}. Signed release refused."
+              exit 1
+            fi
+          done
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/android-release.jks"
+          chmod 600 "$RUNNER_TEMP/android-release.jks"
+          echo "SHOPMANAGER_ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/android-release.jks" >> "$GITHUB_ENV"
+          echo "SHOPMANAGER_ANDROID_STORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "SHOPMANAGER_ANDROID_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "SHOPMANAGER_ANDROID_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+      - name: Validate signing certificate before build
+        shell: bash
+        env:
+          EXPECTED_SHA256: 4E08563D752BDE7A1D4A52BD49B5E950464F960537CC4DAF4CA175031D04E623
+        run: |
+          set -euo pipefail
+          ACTUAL="$(keytool -list -v -keystore "$RUNNER_TEMP/android-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d '[:space:]:')"
+          test "${ACTUAL^^}" = "$EXPECTED_SHA256" || { echo "::error::Wrong Android signing certificate. DO NOT publish this APK as an update."; exit 1; }
+      - name: Assemble signed release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A run_number-based versionCode prevents same-code updates being rejected.
+          gradle -p android --no-daemon :app:assembleRelease "-PSHOPMANAGER_VERSION_CODE=$((10000 + ${{ github.run_number }}))"
+          test -s "android/app/build/outputs/apk/release/app-release.apk"
+      - name: Verify the final APK signature and identity
+        shell: bash
+        env:
+          EXPECTED_SHA256: 4E08563D752BDE7A1D4A52BD49B5E950464F960537CC4DAF4CA175031D04E623
+        run: |
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          SDK_BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          "$SDK_BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+          ACTUAL="$("$SDK_BUILD_TOOLS/apksigner" verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | tr -d '[:space:]:')"
+          test "${ACTUAL^^}" = "$EXPECTED_SHA256" || { echo "::error::APK signing certificate does not match stable release key."; exit 1; }
+          "$SDK_BUILD_TOOLS/aapt" dump badging "$APK" | head -n 2
+          sha256sum "$APK"
+      - name: Upload signed release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShopManager-Android-Release
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 60
+      - name: Remove temporary signing key
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/android-release.jks"
