@@ -865,7 +865,7 @@ public final class MainActivity extends Activity {
             try{
                 http("/operation",op);
                 JSONObject fresh=http("/snapshot",null);
-                runOnUiThread(()->{snapshot=fresh;save();toast(successMessage);});
+                runOnUiThread(()->{snapshot=fresh;save();toast(successMessage);homePage();});
             }catch(Exception e){
                 String message=e.getMessage();
                 runOnUiThread(()->new AlertDialog.Builder(this).setTitle("ثبت ناموفق")
