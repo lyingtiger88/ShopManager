@@ -63,7 +63,7 @@ def create_master_backup():
     """Create a consistent SQLite backup owned by the master, then verify it."""
     init_sync_schema()
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     destination = BACKUP_DIR / f"shopmanager-master-{stamp}.sqlite3"
     source_path = Path(__import__("shopmanager").DB_FILE)
     if not source_path.exists():
