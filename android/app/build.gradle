@@ -21,6 +21,7 @@ android {
         signingConfigs {
             kaliiaRelease {
                 storeFile file(releaseKeystore)
+                storeType = 'PKCS12'
                 storePassword = releaseStoreSecret
                 keyAlias = releaseAlias
                 keyPassword = releaseKeySecret
