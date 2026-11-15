@@ -737,6 +737,12 @@ class App(tk.Tk):
         ttk.Label(account,text="برای ثبت حساب کاربری، مشاهده محصولات و مدیریت اشتراک به وب‌سایت کالیا سافت مراجعه کنید.").pack(anchor="e",padx=10,pady=6)
         ttk.Button(account,text="ثبت حساب کاربری در وب‌سایت کالیا سافت",
                    command=lambda:webbrowser.open("https://kaliia.ir")).pack(side="right",padx=10,pady=8)
+        about=ttk.LabelFrame(self.settings_tab,text="درباره نرم‌افزار")
+        about.pack(fill="x",padx=12,pady=6)
+        ttk.Label(about,text="ShopManager | محصولی از کالیا سافت").pack(anchor="e",padx=10,pady=6)
+        ttk.Label(about,text="وب‌سایت رسمی: https://kaliia.ir").pack(anchor="e",padx=10,pady=3)
+        ttk.Button(about,text="مشاهده وب‌سایت کالیا سافت",
+                   command=lambda:webbrowser.open("https://kaliia.ir")).pack(side="right",padx=10,pady=8)
 
     def change_password(self):
         current=setting("password_hash")
