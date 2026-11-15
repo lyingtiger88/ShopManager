@@ -842,6 +842,29 @@ class App(tk.Tk):
         actions.pack(fill="x", padx=10, pady=8)
         ttk.Button(actions, text="به‌روزرسانی", command=refresh).pack(side="right", padx=4)
         ttk.Button(actions, text="لغو دسترسی دستگاه انتخاب‌شده", command=revoke_selected).pack(side="right", padx=4)
+
+        def create_backup():
+            try:
+                from sync_server import create_master_backup
+                result = create_master_backup()
+                messagebox.showinfo(
+                    "پشتیبان‌گیری موفق",
+                    f"نسخه پشتیبان با موفقیت ساخته و بررسی شد.\n\n"
+                    f"فایل: {result['filename']}\n"
+                    f"حجم: {result['size_bytes']:,} بایت\n"
+                    f"سلامت پایگاه داده: {result['integrity']}\n"
+                    f"نسخه‌های نگهداری‌شده: {result['retained']}",
+                    parent=window
+                )
+            except Exception as exc:
+                messagebox.showerror("خطای پشتیبان‌گیری", str(exc), parent=window)
+
+        ttk.Button(actions, text="ایجاد پشتیبان از پایگاه داده اصلی",
+                   command=create_backup).pack(side="left", padx=4)
+        ttk.Label(
+            window,
+            text="پشتیبان‌گیری خودکار روزانه نیز روی دستگاه اصلی فعال است؛ حداکثر ۳۰ نسخه نگهداری می‌شود."
+        ).pack(anchor="e", padx=12, pady=(0, 8))
         refresh()
 
     def label_entry(self, parent, label, width=24):
