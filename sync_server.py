@@ -408,6 +408,24 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
+def _daily_backup_loop():
+    import time
+    while True:
+        try:
+            backups = list_master_backups()
+            if not backups:
+                create_master_backup()
+            else:
+                latest = datetime.fromisoformat(backups[0]["modified_at"])
+                age = (datetime.now() - latest).total_seconds()
+                if age >= 24 * 60 * 60:
+                    create_master_backup()
+        except Exception:
+            # A failed scheduled backup must not terminate the LAN service.
+            pass
+        time.sleep(60 * 30)
+
+
 def start_server(host="0.0.0.0", port=PORT):
     global _SERVER
     if _SERVER is not None:
@@ -417,6 +435,7 @@ def start_server(host="0.0.0.0", port=PORT):
     server = ThreadingHTTPServer((host, port), Handler)
     server.daemon_threads = True
     threading.Thread(target=server.serve_forever, name="shopmanager-sync", daemon=True).start()
+    threading.Thread(target=_daily_backup_loop, name="shopmanager-daily-backup", daemon=True).start()
     _SERVER = server
     return server
 
