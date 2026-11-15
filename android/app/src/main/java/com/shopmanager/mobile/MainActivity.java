@@ -811,7 +811,19 @@ public final class MainActivity extends Activity {
                 +"\nموارد عیب و عملکرد: "+readableList(j.optString("intake_checks"))
                 +"\nعیب مشتری: "+j.optString("problem")
                 +"\nتشخیص: "+j.optString("diagnosed_fault")
-                +"\nدستمزد: "+j.optLong("labor")+" تومان"));
+                +"\nدستمزد: "+j.optLong("labor")+" تومان"
+                +"\nپرداخت‌شده: "+j.optLong("paid")+" تومان"));
+            LinearLayout actions=new LinearLayout(this);
+            actions.setOrientation(LinearLayout.HORIZONTAL);
+            body.addView(actions);
+            Button statusButton=new Button(this);
+            statusButton.setText("تغییر وضعیت");
+            statusButton.setOnClickListener(v->changeJobStatus(j));
+            actions.addView(statusButton,new LinearLayout.LayoutParams(0,-2,1));
+            Button paymentButton=new Button(this);
+            paymentButton.setText("ثبت پرداخت");
+            paymentButton.setOnClickListener(v->recordJobPayment(j));
+            actions.addView(paymentButton,new LinearLayout.LayoutParams(0,-2,1));
         }
         body.addView(text("پذیرش‌های ارسال‌نشده"));
         for(int i=0;i<pending.length();i++){
@@ -825,13 +837,94 @@ public final class MainActivity extends Activity {
     private void inventoryPage() {
         reset("موجودی (نمایش اطلاعات آخرین همگام‌سازی)");
         JSONArray list=snapshot.optJSONArray("items");
-        if(list==null || list.length()==0){body.addView(text("اطلاعاتی دریافت نشده است."));return;}
-        for(int i=0;i<list.length();i++){
+        if(list==null || list.length()==0){body.addView(text("اطلاعاتی دریافت نشده است."));}
+        else for(int i=0;i<list.length();i++){
             JSONObject item=list.optJSONObject(i);
-            if(item!=null)body.addView(text(item.optString("sku")+" | "+item.optString("name")
-                    +" | موجودی "+item.optInt("qty")+" | قیمت "+item.optLong("price")+" تومان"));
+            if(item!=null){
+                body.addView(text(item.optString("sku")+" | "+item.optString("name")
+                        +" | موجودی "+item.optInt("qty")+" | قیمت "+item.optLong("price")+" تومان"));
+                Button receive=new Button(this);
+                receive.setText("ثبت ورود موجودی");
+                receive.setOnClickListener(v->receiveStock(item));
+                body.addView(receive);
+            }
         }
+        action("به‌روزرسانی موجودی از سیستم اصلی",this::synchronize);
     }
+    private JSONObject newOperation(String kind) throws Exception {
+        JSONObject op=new JSONObject();
+        String id=UUID.randomUUID().toString();
+        op.put("kind",kind);
+        op.put("ref",id);
+        op.put("operation_id",id);
+        return op;
+    }
+    private void submitMasterOperation(JSONObject op,String successMessage) {
+        if(url().isEmpty()||key().isEmpty()){toast("ابتدا دستگاه را به سیستم اصلی متصل کنید");return;}
+        executor.execute(()->{
+            try{
+                http("/operation",op);
+                JSONObject fresh=http("/snapshot",null);
+                runOnUiThread(()->{snapshot=fresh;save();toast(successMessage);});
+            }catch(Exception e){
+                String message=e.getMessage();
+                runOnUiThread(()->new AlertDialog.Builder(this).setTitle("ثبت ناموفق")
+                        .setMessage(message+"\\nاطلاعات ثبت نشد؛ اتصال به سیستم اصلی را بررسی کنید.")
+                        .setPositiveButton("باشه",null).show());
+            }
+        });
+    }
+    private void changeJobStatus(JSONObject job) {
+        String current=job.optString("status","در انتظار");
+        String next;
+        switch(current){
+            case "در انتظار": next="در حال تعمیر"; break;
+            case "در حال تعمیر": next="تکمیل شده"; break;
+            case "تکمیل شده": next="تحویل شده"; break;
+            default: next="در انتظار"; break;
+        }
+        new AlertDialog.Builder(this).setTitle("تغییر وضعیت پرونده")
+                .setMessage("وضعیت پرونده "+job.optString("order_code")+" به «"+next+"» تغییر کند؟")
+                .setNegativeButton("انصراف",null)
+                .setPositiveButton("ثبت", (d,w)->{
+                    try{
+                        JSONObject op=newOperation("job_status");
+                        op.put("job_id",job.optInt("id"));op.put("status",next);
+                        submitMasterOperation(op,"وضعیت پرونده به‌روزرسانی شد.");
+                    }catch(Exception e){toast(e.getMessage());}
+                }).show();
+    }
+    private void recordJobPayment(JSONObject job) {
+        EditText amount=field("مجموع مبلغ پرداخت‌شده تا این لحظه",String.valueOf(job.optLong("paid")));
+        new AlertDialog.Builder(this).setTitle("ثبت مبلغ پرداخت‌شده")
+                .setView(amount).setNegativeButton("انصراف",null)
+                .setPositiveButton("ثبت", (d,w)->{
+                    long paid=parseMoney(amount.getText().toString());
+                    try{
+                        JSONObject op=newOperation("job_payment");
+                        op.put("job_id",job.optInt("id"));op.put("paid",paid);
+                        submitMasterOperation(op,"مبلغ پرداخت‌شده ثبت شد.");
+                    }catch(Exception e){toast(e.getMessage());}
+                }).show();
+    }
+    private void receiveStock(JSONObject item) {
+        EditText quantity=field("تعداد ورودی", "1");
+        new AlertDialog.Builder(this).setTitle("ورود موجودی: "+item.optString("name"))
+                .setView(quantity).setNegativeButton("انصراف",null)
+                .setPositiveButton("ثبت ورود", (d,w)->{
+                    int qty;
+                    try{qty=Integer.parseInt(quantity.getText().toString().trim());}
+                    catch(Exception e){toast("تعداد باید عدد صحیح باشد");return;}
+                    if(qty<=0){toast("تعداد باید بیشتر از صفر باشد");return;}
+                    try{
+                        JSONObject op=newOperation("stock_receipt");
+                        op.put("item_id",item.optInt("id"));op.put("qty",qty);
+                        op.put("reason","ورود موجودی از دستگاه اندرویدی");
+                        submitMasterOperation(op,"ورود موجودی در سیستم اصلی ثبت شد.");
+                    }catch(Exception e){toast(e.getMessage());}
+                }).show();
+    }
+
     private long parseMoney(String raw) {
         try { return Math.max(0, Long.parseLong(raw.trim().replace(",","").replace("٬",""))); }
         catch(Exception e) { return 0; }
