@@ -96,6 +96,52 @@ def create_master_backup():
             "integrity": "ok", "retained": min(len(backups), BACKUP_KEEP)}
 
 
+def restore_master_backup(filename):
+    """Safely restore a verified backup from the master's managed backup folder."""
+    name = Path(valid_text(filename, 180)).name
+    if not name.startswith("shopmanager-master-") or not name.endswith(".sqlite3"):
+        raise ValueError("نام فایل پشتیبان معتبر نیست")
+    source_path = BACKUP_DIR / name
+    if not source_path.is_file():
+        raise FileNotFoundError("نسخه پشتیبان انتخاب‌شده پیدا نشد")
+    check = sqlite3.connect(f"file:{source_path.resolve()}?mode=ro", uri=True)
+    try:
+        integrity = check.execute("PRAGMA integrity_check").fetchone()[0]
+        tables = {row[0] for row in check.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+        required = {"customers", "items", "jobs", "job_items", "stock_log", "app_settings"}
+        if integrity != "ok" or not required.issubset(tables):
+            raise ValueError("فایل پشتیبان سالم یا متعلق به ShopManager نیست")
+    finally:
+        check.close()
+
+    # Preserve the current live database before replacing it.
+    safety = create_master_backup()
+    live_path = Path(__import__("shopmanager").DB_FILE)
+    staged = live_path.with_suffix(live_path.suffix + ".restore-tmp")
+    src = sqlite3.connect(f"file:{source_path.resolve()}?mode=ro", uri=True)
+    dst = sqlite3.connect(str(staged))
+    try:
+        src.backup(dst)
+        if dst.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+            raise RuntimeError("بررسی نسخه بازیابی‌شده ناموفق بود")
+    except Exception:
+        dst.close()
+        src.close()
+        staged.unlink(missing_ok=True)
+        raise
+    else:
+        dst.close()
+        src.close()
+    try:
+        os.replace(staged, live_path)
+    except Exception:
+        staged.unlink(missing_ok=True)
+        raise
+    return {"restored": name, "safety_backup": safety["filename"],
+            "integrity": "ok"}
+
+
 def list_master_backups():
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     return [{"filename": p.name, "size_bytes": p.stat().st_size,
