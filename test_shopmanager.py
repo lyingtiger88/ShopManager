@@ -268,6 +268,7 @@ class MasterBackupTests(unittest.TestCase):
 
 
     def test_restore_rejects_corrupt_database_file(self):
+        self.backups.mkdir(parents=True, exist_ok=True)
         corrupt = self.backups / "shopmanager-master-corrupt.sqlite3"
         corrupt.write_bytes(b"not a sqlite database")
         with self.assertRaises(sqlite3.DatabaseError):
