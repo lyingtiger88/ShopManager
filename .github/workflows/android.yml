@@ -27,6 +27,23 @@ jobs:
         run: python -m unittest discover -p 'test_*.py' -v
       - name: Build single-file executable
         run: python -m PyInstaller --noconfirm --clean --onefile --windowed --hidden-import=arabic_reshaper --hidden-import=bidi.algorithm --hidden-import=PIL --add-data "device_catalog.json;." --name ShopManager shopmanager.py
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+      - name: Build updateable Windows installer (fixed AppId)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMySourceDir="${{ github.workspace }}\dist" /DMyOutputDir="${{ github.workspace }}\artifacts" /DMyAppVersion="0.1.${{ github.run_number }}" installer\ShopManager.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          if (-not (Test-Path artifacts/ShopManager-Setup-x64.exe)) { throw "Installer missing" }
+      - name: Upload in-place Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShopManager-Windows-Installer
+          path: artifacts/ShopManager-Setup-x64.exe
+          if-no-files-found: error
+          retention-days: 30
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
@@ -47,7 +64,7 @@ jobs:
             gh release delete $tag --yes --cleanup-tag --repo $env:GH_REPO
             if ($LASTEXITCODE -ne 0) { exit 1 }
           }
-          gh release create $tag "dist/ShopManager.exe" --repo $env:GH_REPO --target "${{ github.sha }}" --title "ShopManager - Windows Latest" --notes "Latest successfully built Windows executable for ShopManager." --latest
+          gh release create $tag "dist/ShopManager.exe" "artifacts/ShopManager-Setup-x64.exe" --repo $env:GH_REPO --target "${{ github.sha }}" --title "ShopManager - Windows Latest" --notes "Latest successfully built Windows executable for ShopManager." --latest
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
   build-android:
