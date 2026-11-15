@@ -5,7 +5,7 @@ android {
     defaultConfig {
         applicationId 'com.shopmanager.mobile'
         minSdk 24
-        targetSdk 28
+        targetSdk 35
         versionCode = Integer.parseInt((project.findProperty('SHOPMANAGER_VERSION_CODE') ?: '1').toString())
         versionName = (project.findProperty('SHOPMANAGER_VERSION_NAME') ?: '0.1.0').toString()
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
