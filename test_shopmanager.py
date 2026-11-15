@@ -117,3 +117,87 @@ class InventoryCartTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class MasterClientArchitectureTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.database = Path(self.tmp.name) / "master.sqlite3"
+        self.p_db = patch.object(app, "DB_FILE", self.database)
+        self.p_db.start()
+        self.p_token = patch.object(sync_server, "TOKEN_FILE", Path(self.tmp.name) / "pairing.txt")
+        self.p_token.start()
+        app.init_db()
+        sync_server.init_sync_schema()
+        self.master_code = sync_server.token()
+
+    def tearDown(self):
+        self.p_token.stop()
+        self.p_db.stop()
+        self.tmp.cleanup()
+
+    def test_pairing_issues_unique_device_credentials(self):
+        first = sync_server.pair_device(self.master_code, "صندوق")
+        second = sync_server.pair_device(self.master_code, "انبار")
+        self.assertNotEqual(first["device_token"], second["device_token"])
+        self.assertNotEqual(first["device_id"], second["device_id"])
+        self.assertEqual(sync_server.authenticate_device(first["device_token"])["id"], first["device_id"])
+        self.assertEqual(len(sync_server.list_devices()), 2)
+
+    def test_invalid_pairing_code_is_rejected(self):
+        with self.assertRaises(PermissionError):
+            sync_server.pair_device("wrong-code", "unknown")
+
+    def test_revoked_device_cannot_authenticate(self):
+        paired = sync_server.pair_device(self.master_code, "گوشی")
+        sync_server.revoke_device(paired["device_id"])
+        self.assertIsNone(sync_server.authenticate_device(paired["device_token"]))
+
+    def test_all_subordinate_operations_write_to_one_master_database(self):
+        device = sync_server.pair_device(self.master_code, "گوشی")
+        client = sync_server.authenticate_device(device["device_token"])
+        customer_ref = "8a87c0d3-5f22-4ef3-bd9a-91b2f33aab22"
+        customer = sync_server.apply_operation({
+            "operation_id": customer_ref, "kind": "customer", "ref": customer_ref,
+            "first_name": "Test", "last_name": "Customer", "phone": "09120000000"
+        }, client)
+        item_ref = "bf57d2f4-c8de-46d7-8e6b-8efadccab333"
+        item = sync_server.apply_operation({
+            "operation_id": item_ref, "kind": "item", "ref": item_ref,
+            "sku": "MASTER-01", "name": "کالای مرکزی", "qty": 2, "cost": 10, "price": 20
+        }, client)
+        receipt_ref = "5a22e1c0-73d3-43c1-9f6b-94bfe6d2ce13"
+        receipt = sync_server.apply_operation({
+            "operation_id": receipt_ref, "kind": "stock_receipt", "ref": receipt_ref,
+            "item_id": item["id"], "qty": 3
+        }, client)
+        self.assertEqual(receipt["received"], 3)
+        with app.db() as c:
+            self.assertEqual(c.execute("SELECT COUNT(*) FROM customers").fetchone()[0], 1)
+            self.assertEqual(c.execute("SELECT qty FROM items WHERE id=?", (item["id"],)).fetchone()[0], 5)
+            self.assertEqual(c.execute("SELECT COUNT(*) FROM stock_log").fetchone()[0], 1)
+
+    def test_retry_is_idempotent_and_does_not_double_receive_stock(self):
+        device = sync_server.pair_device(self.master_code, "گوشی")
+        client = sync_server.authenticate_device(device["device_token"])
+        with app.db() as c:
+            item_id = c.execute("INSERT INTO items(sku,name,qty,cost,price) VALUES(?,?,?,?,?)",
+                                ("R-1", "Test", 4, 1, 2)).lastrowid
+        op = {"operation_id": "a5a8f5d3-9c7f-4f80-9c4a-0c6b6fdd1e15",
+              "ref": "a5a8f5d3-9c7f-4f80-9c4a-0c6b6fdd1e15",
+              "kind": "stock_receipt", "item_id": item_id, "qty": 2}
+        first = sync_server.apply_operation(op, client)
+        second = sync_server.apply_operation(op, client)
+        self.assertFalse(first.get("duplicate", False))
+        self.assertTrue(second["duplicate"])
+        with app.db() as c:
+            self.assertEqual(c.execute("SELECT qty FROM items WHERE id=?", (item_id,)).fetchone()[0], 6)
+            self.assertEqual(c.execute("SELECT COUNT(*) FROM stock_log").fetchone()[0], 1)
+
+    def test_snapshot_contains_complete_master_read_models(self):
+        app.add_item("SNAP-1", "Snapshot item", 3, 4, 5)
+        result = sync_server.snapshot()
+        self.assertEqual(result["database_authority"], "master")
+        self.assertIn("stock_log", result)
+        self.assertIn("job_items", result)
+        self.assertEqual(len(result["items"]), 1)
+
