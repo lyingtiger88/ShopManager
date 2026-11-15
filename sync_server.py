@@ -317,8 +317,6 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/snapshot":
             self.respond(200, snapshot())
-        elif path == "/devices":
-            self.respond(200, {"devices": list_devices()})
         else:
             self.respond(404, {"error": "not found"})
 
@@ -344,9 +342,6 @@ class Handler(BaseHTTPRequestHandler):
                     except Exception:
                         pass
                 self.respond(200, {"ok": True, "result": result})
-            elif path == "/devices/revoke":
-                revoke_device(valid_text(payload.get("device_id"), 100))
-                self.respond(200, {"ok": True})
             else:
                 self.respond(404, {"error": "not found"})
         except PermissionError as exc:
