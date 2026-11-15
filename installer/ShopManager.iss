@@ -14,7 +14,7 @@
 ; NEVER rotate AppId. Inno Setup uses it to identify upgrades and reuse
 ; the existing install directory instead of demanding an uninstall.
 [Setup]
-AppId={{{r.guid}}}
+AppId={{F4B31C77-3C5F-4E25-A47D-9AFA5AE31156}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher=Kaliia Soft
