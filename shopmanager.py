@@ -776,9 +776,62 @@ class App(tk.Tk):
             if not getattr(self, "_sync_started", False):
                 start_server()
                 self._sync_started = True
-            messagebox.showinfo("اتصال گوشی", pairing_info())
+            answer = messagebox.askyesno(
+                "اتصال دستگاه‌ها",
+                pairing_info() + "\n\nبرای مشاهده و لغو دسترسی دستگاه‌های متصل، پنل مدیریت دستگاه‌ها باز شود؟"
+            )
+            if answer:
+                self.manage_sync_devices()
         except Exception as exc:
             messagebox.showerror("خطای سرویس همگام‌سازی", str(exc))
+
+    def manage_sync_devices(self):
+        from sync_server import list_devices, revoke_device
+        window = tk.Toplevel(self)
+        window.title("دستگاه‌های متصل به سیستم اصلی")
+        window.geometry("620x390")
+        window.transient(self)
+        ttk.Label(window, text="همه دستگاه‌های زیر به پایگاه داده مرکزی همین سیستم متصل هستند.").pack(pady=8)
+        columns = ("name", "id", "created", "last_seen", "state")
+        tree = ttk.Treeview(window, columns=columns, show="headings", height=11)
+        for col, title, width in [
+            ("name", "نام دستگاه", 120), ("id", "شناسه", 155),
+            ("created", "تاریخ اتصال", 115), ("last_seen", "آخرین فعالیت", 115),
+            ("state", "وضعیت", 75)
+        ]:
+            tree.heading(col, text=title)
+            tree.column(col, width=width, anchor="center")
+        tree.pack(fill="both", expand=True, padx=10, pady=8)
+
+        def refresh():
+            tree.delete(*tree.get_children())
+            for item in list_devices():
+                tree.insert("", "end", iid=item["id"], values=(
+                    item["name"], item["id"][:18], item["created_at"],
+                    item.get("last_seen_at") or "هنوز متصل نشده",
+                    "لغوشده" if item["revoked"] else "فعال"
+                ))
+
+        def revoke_selected():
+            selected = tree.selection()
+            if not selected:
+                messagebox.showwarning("انتخاب دستگاه", "ابتدا یک دستگاه را انتخاب کنید.", parent=window)
+                return
+            device_id = selected[0]
+            if not messagebox.askyesno("لغو دسترسی", "دسترسی این دستگاه به پایگاه داده مرکزی لغو شود؟", parent=window):
+                return
+            try:
+                revoke_device(device_id)
+                refresh()
+                messagebox.showinfo("انجام شد", "دسترسی دستگاه لغو شد.", parent=window)
+            except Exception as exc:
+                messagebox.showerror("خطا", str(exc), parent=window)
+
+        actions = ttk.Frame(window)
+        actions.pack(fill="x", padx=10, pady=8)
+        ttk.Button(actions, text="به‌روزرسانی", command=refresh).pack(side="right", padx=4)
+        ttk.Button(actions, text="لغو دسترسی دستگاه انتخاب‌شده", command=revoke_selected).pack(side="right", padx=4)
+        refresh()
 
     def label_entry(self, parent, label, width=24):
         f = ttk.Frame(parent)
