@@ -732,6 +732,11 @@ class App(tk.Tk):
         self.password_entry=ttk.Entry(security,show="●",width=18);self.password_entry.pack(side="right",padx=5,pady=10)
         ttk.Button(security,text="ثبت / تغییر رمز",command=self.change_password).pack(side="right",padx=8)
         ttk.Label(security,text="رمز جدید حداقل ۶ کاراکتر؛ ویرایش و حذف مشتری و پرونده نیازمند رمز است.").pack(side="right",padx=8)
+        account=ttk.LabelFrame(self.settings_tab,text="حساب کاربری کالیا سافت و اشتراک")
+        account.pack(fill="x",padx=12,pady=6)
+        ttk.Label(account,text="برای ثبت حساب کاربری، مشاهده محصولات و مدیریت اشتراک به وب‌سایت کالیا سافت مراجعه کنید.").pack(anchor="e",padx=10,pady=6)
+        ttk.Button(account,text="ثبت حساب کاربری در وب‌سایت کالیا سافت",
+                   command=lambda:webbrowser.open("https://kaliia.ir")).pack(side="right",padx=10,pady=8)
 
     def change_password(self):
         current=setting("password_hash")
