@@ -7,6 +7,8 @@ import hashlib
 import hmac
 import json
 import os
+import shutil
+import sqlite3
 import secrets
 import socket
 import threading
@@ -51,6 +53,55 @@ def init_sync_schema():
             id INTEGER PRIMARY KEY, device_id TEXT NOT NULL, action TEXT NOT NULL,
             operation_id TEXT, created_at TEXT NOT NULL
         )""")
+
+
+BACKUP_DIR = Path(DATA_DIR) / "backups"
+BACKUP_KEEP = 30
+
+
+def create_master_backup():
+    """Create a consistent SQLite backup owned by the master, then verify it."""
+    init_sync_schema()
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    destination = BACKUP_DIR / f"shopmanager-master-{stamp}.sqlite3"
+    source_path = Path(__import__("shopmanager").DB_FILE)
+    if not source_path.exists():
+        raise FileNotFoundError("پایگاه داده اصلی پیدا نشد")
+    source = sqlite3.connect(str(source_path), timeout=30)
+    target = sqlite3.connect(str(destination), timeout=30)
+    try:
+        source.backup(target)
+        result = target.execute("PRAGMA integrity_check").fetchone()[0]
+        if result != "ok":
+            raise RuntimeError("بررسی سلامت نسخه پشتیبان ناموفق بود: " + str(result))
+    except Exception:
+        target.close()
+        source.close()
+        destination.unlink(missing_ok=True)
+        raise
+    else:
+        target.close()
+        source.close()
+    try:
+        os.chmod(destination, 0o600)
+    except OSError:
+        pass
+    backups = sorted(BACKUP_DIR.glob("shopmanager-master-*.sqlite3"),
+                     key=lambda p: p.stat().st_mtime, reverse=True)
+    for old in backups[BACKUP_KEEP:]:
+        old.unlink(missing_ok=True)
+    return {"path": str(destination), "filename": destination.name,
+            "size_bytes": destination.stat().st_size,
+            "integrity": "ok", "retained": min(len(backups), BACKUP_KEEP)}
+
+
+def list_master_backups():
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    return [{"filename": p.name, "size_bytes": p.stat().st_size,
+             "modified_at": datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds")}
+            for p in sorted(BACKUP_DIR.glob("shopmanager-master-*.sqlite3"),
+                            key=lambda p: p.stat().st_mtime, reverse=True)]
 
 
 def local_ip():
@@ -317,6 +368,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/snapshot":
             self.respond(200, snapshot())
+        elif path == "/backups":
+            self.respond(200, {"backups": list_master_backups()})
         else:
             self.respond(404, {"error": "not found"})
 
