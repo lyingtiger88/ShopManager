@@ -429,17 +429,32 @@ public final class MainActivity extends Activity {
         body.addView(text("هر دو دستگاه باید در یک شبکه خصوصی باشند. از برنامه ویندوز دکمه فعال‌سازی همگام‌سازی را بزنید."));
         EditText address=field("http://192.168.1.10:8765",url());
         EditText token=field("کد اتصال نمایش‌داده‌شده روی ویندوز",key());
-        action("ذخیره نشانی و کد اتصال",()->{
-            prefs.edit().putString("url",address.getText().toString().trim())
-                    .putString("key",token.getText().toString().trim()).apply();
-            toast("تنظیمات اتصال ذخیره شد");
+        EditText deviceName=field("نام این دستگاه","گوشی فروشگاه");
+        action("جفت‌سازی این دستگاه با سیستم اصلی",()->{
+            String base=address.getText().toString().trim().replaceAll("/+$","");
+            String pairingCode=token.getText().toString().trim();
+            String name=deviceName.getText().toString().trim();
+            if(base.isEmpty()||pairingCode.isEmpty()){toast("آدرس و کد جفت‌سازی را وارد کنید");return;}
+            prefs.edit().putString("url",base).apply();
+            executor.execute(()->{
+                try{
+                    JSONObject payload=new JSONObject();
+                    payload.put("pairing_code",pairingCode);
+                    payload.put("device_name",name);
+                    JSONObject paired=pairRequest(base,payload);
+                    prefs.edit().putString("key",paired.getString("device_token"))
+                            .putString("device_id",paired.getString("device_id"))
+                            .putString("device_name",paired.optString("device_name",name)).apply();
+                    JSONObject master=http("/snapshot",null);
+                    runOnUiThread(()->{
+                        snapshot=master;pending=new JSONArray();save();homePage();
+                        toast("اتصال امن دستگاه ثبت شد؛ این دستگاه زیرمجموعه سیستم اصلی است.");
+                    });
+                }catch(Exception e){String message=e.getMessage();runOnUiThread(()->toast("جفت‌سازی ناموفق: "+message));}
+            });
         });
-        action("همگام‌سازی اکنون",()->{
-            prefs.edit().putString("url",address.getText().toString().trim())
-                    .putString("key",token.getText().toString().trim()).apply();
-            synchronize();
-        });
-        body.addView(text("در حالت آفلاین، مشتری و پذیرش جدید در صف ثبت می‌شوند. کد نهایی سفارش فقط پس از تأیید ویندوز صادر می‌شود. مصرف قطعات از موبایل فعلاً غیرفعال است."));
+        action("همگام‌سازی اطلاعات از سیستم اصلی",this::synchronize);
+        body.addView(text("این دستگاه پایگاه داده مستقل ندارد و فقط از پایگاه داده سیستم اصلی استفاده می‌کند. برای اتصال دستگاه جدید، کد جفت‌سازی را از ویندوز دریافت کنید. در قطع ارتباط، اطلاعات ذخیره‌شده فقط نسخه نمایشی آخرین همگام‌سازی است و ثبت‌های تأییدنشده تا اتصال مجدد در صف می‌مانند."));
         action("مشاهده اقلام موجودی سیستم",()->inventoryPage());
     }
 
@@ -821,6 +836,23 @@ public final class MainActivity extends Activity {
         try { return Math.max(0, Long.parseLong(raw.trim().replace(",","").replace("٬",""))); }
         catch(Exception e) { return 0; }
     }
+    private JSONObject pairRequest(String base,JSONObject payload)throws Exception {
+        HttpURLConnection c=(HttpURLConnection)new URL(base+"/pair").openConnection();
+        c.setConnectTimeout(7000);c.setReadTimeout(9000);
+        c.setRequestMethod("POST");c.setDoOutput(true);
+        c.setRequestProperty("Content-Type","application/json; charset=utf-8");
+        byte[] raw=payload.toString().getBytes(StandardCharsets.UTF_8);
+        try(OutputStream out=c.getOutputStream()){out.write(raw);}
+        int code=c.getResponseCode();
+        InputStream stream=code<400?c.getInputStream():c.getErrorStream();
+        ByteArrayOutputStream data=new ByteArrayOutputStream();
+        if(stream!=null)try(InputStream input=stream){byte[] buf=new byte[4096];int n;while((n=input.read(buf))!=-1)data.write(buf,0,n);}
+        c.disconnect();
+        JSONObject result=new JSONObject(data.toString("UTF-8"));
+        if(code>=400)throw new IOException(result.optString("error","HTTP "+code));
+        return result;
+    }
+
     private JSONObject http(String path,JSONObject payload)throws Exception {
         if(!url().startsWith("http://"))throw new IOException("نشانی شبکه محلی با http:// وارد شود");
         HttpURLConnection c=(HttpURLConnection)new URL(url()+path).openConnection();
