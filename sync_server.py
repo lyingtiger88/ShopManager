@@ -137,6 +137,7 @@ def _existing_operation(c, op_id):
 
 def apply_operation(op, device):
     """Execute one idempotent command on the master DB only."""
+    init_sync_schema()
     if not isinstance(op, dict):
         raise ValueError("اطلاعات درخواست معتبر نیست")
     op_id = valid_text(op.get("operation_id") or op.get("ref"), 100)
