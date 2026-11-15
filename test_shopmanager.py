@@ -1,3 +1,4 @@
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -200,4 +201,47 @@ class MasterClientArchitectureTests(unittest.TestCase):
         self.assertIn("stock_log", result)
         self.assertIn("job_items", result)
         self.assertEqual(len(result["items"]), 1)
+
+
+
+class MasterBackupTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.database = Path(self.tmp.name) / "master.sqlite3"
+        self.backups = Path(self.tmp.name) / "backups"
+        self.p_db = patch.object(app, "DB_FILE", self.database)
+        self.p_db.start()
+        self.p_dir = patch.object(sync_server, "BACKUP_DIR", self.backups)
+        self.p_dir.start()
+        app.init_db()
+        app.add_item("BACKUP-1", "Backup test item", 7, 12, 20)
+
+    def tearDown(self):
+        self.p_dir.stop()
+        self.p_db.stop()
+        self.tmp.cleanup()
+
+    def test_backup_is_created_and_integrity_verified(self):
+        result = sync_server.create_master_backup()
+        backup = Path(result["path"])
+        self.assertTrue(backup.exists())
+        self.assertEqual(result["integrity"], "ok")
+        restored = sqlite3.connect(str(backup))
+        try:
+            self.assertEqual(restored.execute("PRAGMA integrity_check").fetchone()[0], "ok")
+            self.assertEqual(restored.execute("SELECT qty FROM items WHERE sku='BACKUP-1'").fetchone()[0], 7)
+        finally:
+            restored.close()
+
+    def test_backup_listing_is_newest_first(self):
+        first = sync_server.create_master_backup()
+        second = sync_server.create_master_backup()
+        listed = sync_server.list_master_backups()
+        self.assertGreaterEqual(len(listed), 1)
+        self.assertEqual(listed[0]["filename"], second["filename"])
+
+    def test_backup_retention_removes_oldest_after_limit(self):
+        for i in range(sync_server.BACKUP_KEEP + 2):
+            sync_server.create_master_backup()
+        self.assertLessEqual(len(sync_server.list_master_backups()), sync_server.BACKUP_KEEP)
 
