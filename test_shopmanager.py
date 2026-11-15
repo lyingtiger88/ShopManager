@@ -265,3 +265,11 @@ class MasterBackupTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             sync_server.restore_master_backup("shopmanager-master-not-found.sqlite3")
 
+
+
+    def test_restore_rejects_corrupt_database_file(self):
+        corrupt = self.backups / "shopmanager-master-corrupt.sqlite3"
+        corrupt.write_bytes(b"not a sqlite database")
+        with self.assertRaises(sqlite3.DatabaseError):
+            sync_server.restore_master_backup(corrupt.name)
+\n
