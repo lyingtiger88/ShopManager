@@ -100,10 +100,6 @@ def authenticate_device(supplied):
         if row:
             c.execute("UPDATE paired_devices SET last_seen_at=? WHERE id=?", (now(), row["id"]))
             return dict(row)
-    # Compatibility for devices paired before per-device credentials were introduced.
-    # The shared bootstrap secret is accepted temporarily; migrate clients by re-pairing.
-    if hmac.compare_digest(supplied, token()):
-        return {"id": "legacy-shared-token", "name": "Legacy paired device"}
     return None
 
 
@@ -135,9 +131,10 @@ def _existing_operation(c, op_id):
     return json.loads(row["result_json"]) if row else None
 
 
-def apply_operation(op, device):
+def apply_operation(op, device=None):
     """Execute one idempotent command on the master DB only."""
     init_sync_schema()
+    device = device or {"id": "local-master", "name": "Master device"}
     if not isinstance(op, dict):
         raise ValueError("اطلاعات درخواست معتبر نیست")
     op_id = valid_text(op.get("operation_id") or op.get("ref"), 100)
