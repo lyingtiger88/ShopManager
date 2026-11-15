@@ -6,24 +6,24 @@ android {
         applicationId 'com.shopmanager.mobile'
         minSdk 24
         targetSdk 28
-        versionCode (project.findProperty('SHOPMANAGER_VERSION_CODE') ?: '1').toString().toInteger()
-        versionName (project.findProperty('SHOPMANAGER_VERSION_NAME') ?: '0.1.0').toString()
+        versionCode = Integer.parseInt((project.findProperty('SHOPMANAGER_VERSION_CODE') ?: '1').toString())
+        versionName = (project.findProperty('SHOPMANAGER_VERSION_NAME') ?: '0.1.0').toString()
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
     }
     def releaseKeystore = System.getenv('SHOPMANAGER_ANDROID_KEYSTORE_PATH')
-    def storePassword = System.getenv('SHOPMANAGER_ANDROID_STORE_PASSWORD')
-    def keyAlias = System.getenv('SHOPMANAGER_ANDROID_KEY_ALIAS')
-    def keyPassword = System.getenv('SHOPMANAGER_ANDROID_KEY_PASSWORD')
-    def releaseReady = [releaseKeystore, storePassword, keyAlias, keyPassword].every {
+    def releaseStoreSecret = System.getenv('SHOPMANAGER_ANDROID_STORE_PASSWORD')
+    def releaseAlias = System.getenv('SHOPMANAGER_ANDROID_KEY_ALIAS')
+    def releaseKeySecret = System.getenv('SHOPMANAGER_ANDROID_KEY_PASSWORD')
+    def releaseReady = [releaseKeystore, releaseStoreSecret, releaseAlias, releaseKeySecret].every {
         it != null && !it.trim().isEmpty()
     }
     if (releaseReady) {
         signingConfigs {
             kaliiaRelease {
                 storeFile file(releaseKeystore)
-                storePassword storePassword
-                keyAlias keyAlias
-                keyPassword keyPassword
+                storePassword = releaseStoreSecret
+                keyAlias = releaseAlias
+                keyPassword = releaseKeySecret
             }
         }
     }
