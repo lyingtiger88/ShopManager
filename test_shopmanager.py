@@ -272,4 +272,4 @@ class MasterBackupTests(unittest.TestCase):
         corrupt.write_bytes(b"not a sqlite database")
         with self.assertRaises(sqlite3.DatabaseError):
             sync_server.restore_master_backup(corrupt.name)
-\n
+
