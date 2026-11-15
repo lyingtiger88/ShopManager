@@ -245,3 +245,23 @@ class MasterBackupTests(unittest.TestCase):
             sync_server.create_master_backup()
         self.assertLessEqual(len(sync_server.list_master_backups()), sync_server.BACKUP_KEEP)
 
+
+
+    def test_restore_replaces_master_database_and_creates_safety_backup(self):
+        app.add_item("RESTORE-OLD", "Old live data", 1, 2, 3)
+        backup = sync_server.create_master_backup()
+        app.add_item("RESTORE-NEW", "New live data", 9, 8, 7)
+        result = sync_server.restore_master_backup(backup["filename"])
+        self.assertEqual(result["integrity"], "ok")
+        self.assertTrue(result["safety_backup"].startswith("shopmanager-master-"))
+        with app.db() as c:
+            skus = {row[0] for row in c.execute("SELECT sku FROM items")}
+        self.assertIn("RESTORE-OLD", skus)
+        self.assertNotIn("RESTORE-NEW", skus)
+
+    def test_restore_rejects_path_traversal_and_unknown_files(self):
+        with self.assertRaises(ValueError):
+            sync_server.restore_master_backup("../outside.sqlite3")
+        with self.assertRaises(FileNotFoundError):
+            sync_server.restore_master_backup("shopmanager-master-not-found.sqlite3")
+
