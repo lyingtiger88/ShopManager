@@ -859,11 +859,46 @@ class App(tk.Tk):
             except Exception as exc:
                 messagebox.showerror("خطای پشتیبان‌گیری", str(exc), parent=window)
 
+        def restore_backup():
+            try:
+                from sync_server import list_master_backups, restore_master_backup
+                backups = list_master_backups()
+                if not backups:
+                    messagebox.showinfo("بازیابی پشتیبان", "هیچ نسخه پشتیبانی پیدا نشد.", parent=window)
+                    return
+                choices = "\\n".join(item["filename"] for item in backups[:30])
+                filename = simpledialog.askstring(
+                    "انتخاب نسخه پشتیبان",
+                    "نام دقیق فایل موردنظر را وارد کنید:\\n\\n" + choices,
+                    parent=window
+                )
+                if not filename:
+                    return
+                if not messagebox.askyesno(
+                    "تأیید بازیابی",
+                    "پایگاه داده فعلی با نسخه انتخابی جایگزین می‌شود. پیش از آن یک پشتیبان ایمنی از اطلاعات فعلی ساخته خواهد شد. ادامه می‌دهید؟",
+                    parent=window
+                ):
+                    return
+                result = restore_master_backup(filename.strip())
+                self.refresh()
+                messagebox.showinfo(
+                    "بازیابی موفق",
+                    f"بازیابی با موفقیت انجام شد.\\nسلامت پایگاه داده: {result['integrity']}\\n"
+                    f"پشتیبان ایمنی اطلاعات قبلی: {result['safety_backup']}",
+                    parent=window
+                )
+                refresh()
+            except Exception as exc:
+                messagebox.showerror("خطای بازیابی", str(exc), parent=window)
+
         ttk.Button(actions, text="ایجاد پشتیبان از پایگاه داده اصلی",
                    command=create_backup).pack(side="left", padx=4)
+        ttk.Button(actions, text="بازیابی از پشتیبان",
+                   command=restore_backup).pack(side="left", padx=4)
         ttk.Label(
             window,
-            text="پشتیبان‌گیری خودکار روزانه نیز روی دستگاه اصلی فعال است؛ حداکثر ۳۰ نسخه نگهداری می‌شود."
+            text="پشتیبان‌گیری خودکار روزانه روی دستگاه اصلی فعال است؛ حداکثر ۳۰ نسخه نگهداری می‌شود. بازیابی، پیش از جایگزینی از اطلاعات فعلی نسخه ایمنی می‌سازد."
         ).pack(anchor="e", padx=12, pady=(0, 8))
         refresh()
 
