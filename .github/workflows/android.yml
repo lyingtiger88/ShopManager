@@ -37,31 +37,53 @@ jobs:
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMySourceDir="${{ github.workspace }}\dist" /DMyOutputDir="${{ github.workspace }}\artifacts" /DMyAppVersion="0.1.${{ github.run_number }}" installer\ShopManager.iss
           if ($LASTEXITCODE -ne 0) { exit 1 }
           if (-not (Test-Path artifacts/ShopManager-Setup-x64.exe)) { throw "Installer missing" }
-      - name: Create temporary BDFR self-signed code-signing certificate (test only)
+      - name: Prepare persistent BDFR signing certificate
         shell: pwsh
+        timeout-minutes: 1
+        env:
+          PFX_BASE64: ${{ secrets.BDFR_CODESIGN_PFX_BASE64 }}
+          PFX_PASSWORD: ${{ secrets.BDFR_CODESIGN_PFX_PASSWORD }}
+          EXPECTED_THUMBPRINT: ${{ secrets.BDFR_CODESIGN_THUMBPRINT }}
         run: |
-          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=BDFR Test Publisher" -CertStoreLocation "Cert:\CurrentUser\My" -KeyAlgorithm RSA -KeyLength 3072 -HashAlgorithm SHA256 -NotAfter (Get-Date).AddYears(3)
+          $ErrorActionPreference = "Stop"
+          foreach ($name in @("PFX_BASE64", "PFX_PASSWORD", "EXPECTED_THUMBPRINT")) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) { throw "Required signing secret $name is missing." }
+          }
+          $pfxBytes = [Convert]::FromBase64String($env:PFX_BASE64)
+          $flags = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::EphemeralKeySet
+          $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($pfxBytes, $env:PFX_PASSWORD, $flags)
+          if (-not $cert.HasPrivateKey) { throw "PFX does not contain a private key." }
+          if ($cert.Thumbprint -ne $env:EXPECTED_THUMBPRINT) { throw "PFX thumbprint mismatch." }
           New-Item -ItemType Directory -Force artifacts/signing | Out-Null
-          Export-Certificate -Cert $cert -FilePath artifacts/signing/BDFR-Test-Publisher.cer | Out-Null
-          Import-Certificate -FilePath artifacts/signing/BDFR-Test-Publisher.cer -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
-          Import-Certificate -FilePath artifacts/signing/BDFR-Test-Publisher.cer -CertStoreLocation "Cert:\CurrentUser\TrustedPublisher" | Out-Null
-          "BDFR_TEST_CERT_THUMBPRINT=$($cert.Thumbprint)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          [IO.File]::WriteAllBytes("artifacts/signing/BDFR-CodeSigning.cer", $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+          $pfxPath = Join-Path $env:RUNNER_TEMP "BDFR-CodeSigning.pfx"
+          [IO.File]::WriteAllBytes($pfxPath, $pfxBytes)
+          "BDFR_CODESIGN_THUMBPRINT=$($cert.Thumbprint)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "BDFR_PFX_PATH=$pfxPath" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "BDFR signing certificate prepared; thumbprint verified."
       - name: Sign and verify ShopManager Windows executable and installer
         shell: pwsh
+        timeout-minutes: 5
+        env:
+          PFX_PASSWORD: ${{ secrets.BDFR_CODESIGN_PFX_PASSWORD }}
         run: |
+          $ErrorActionPreference = "Stop"
+          if (-not (Test-Path $env:BDFR_PFX_PATH)) { throw "Prepared BDFR PFX is missing." }
           $sdk = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Filter signtool.exe -Recurse | Where-Object { $_.FullName -match "\\x64\\signtool.exe$" } | Sort-Object FullName -Descending | Select-Object -First 1
-          if (-not $sdk) { throw "Windows SDK SignTool not found" }
+          if (-not $sdk) { throw "Windows SDK SignTool not found." }
           $files = @(Get-Item "dist/ShopManager.exe", "artifacts/ShopManager-Setup-x64.exe")
           foreach ($file in $files) {
-            & $sdk.FullName sign /fd SHA256 /sha1 "$env:BDFR_TEST_CERT_THUMBPRINT" $file.FullName
+            & $sdk.FullName sign /f "$env:BDFR_PFX_PATH" /p "$env:PFX_PASSWORD" /fd SHA256 $file.FullName
             if ($LASTEXITCODE -ne 0) { throw "SignTool failed: $($file.Name)" }
-            & $sdk.FullName verify /pa /v $file.FullName
-            if ($LASTEXITCODE -ne 0) { throw "Signature verification failed: $($file.Name)" }
+            $signature = Get-AuthenticodeSignature -FilePath $file.FullName
+            if (-not $signature.SignerCertificate -or $signature.SignerCertificate.Thumbprint -ne $env:BDFR_CODESIGN_THUMBPRINT) { throw "Wrong BDFR signer on $($file.Name)." }
+            $expectedUntrustedRoot = $signature.Status -eq "UnknownError" -and $signature.StatusMessage -match "root certificate which is not trusted"
+            if ($signature.Status -ne "Valid" -and -not $expectedUntrustedRoot) { throw "Authenticode validation failed for $($file.Name): $($signature.Status) $($signature.StatusMessage)" }
+            if ($expectedUntrustedRoot) { Write-Warning "Correct BDFR signature; self-signed root is not trusted on hosted runner." }
           }
-          $files | ForEach-Object { Get-FileHash $_.FullName -Algorithm SHA256 } |
-            ForEach-Object { "$($_.Hash) *$($_.Path)" } |
-            Set-Content artifacts/signing/SHA256SUMS.txt
-          Write-Host "Signed and verified $($files.Count) Windows files. Certificate is self-signed and test-only."
+          $files | ForEach-Object { Get-FileHash $_.FullName -Algorithm SHA256 } | ForEach-Object { "$($_.Hash) *$($_.Path)" } | Set-Content artifacts/signing/SHA256SUMS.txt
+          Remove-Item $env:BDFR_PFX_PATH -Force
+          Write-Host "ShopManager Windows EXE and installer signed with persistent BDFR identity."
       - name: Upload in-place Windows installer
         uses: actions/upload-artifact@v4
         with:
