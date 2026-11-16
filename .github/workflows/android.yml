@@ -37,18 +37,45 @@ jobs:
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMySourceDir="${{ github.workspace }}\dist" /DMyOutputDir="${{ github.workspace }}\artifacts" /DMyAppVersion="0.1.${{ github.run_number }}" installer\ShopManager.iss
           if ($LASTEXITCODE -ne 0) { exit 1 }
           if (-not (Test-Path artifacts/ShopManager-Setup-x64.exe)) { throw "Installer missing" }
+      - name: Create temporary BDFR self-signed code-signing certificate (test only)
+        shell: pwsh
+        run: |
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=BDFR Test Publisher" -CertStoreLocation "Cert:\CurrentUser\My" -KeyAlgorithm RSA -KeyLength 3072 -HashAlgorithm SHA256 -NotAfter (Get-Date).AddYears(3)
+          New-Item -ItemType Directory -Force artifacts/signing | Out-Null
+          Export-Certificate -Cert $cert -FilePath artifacts/signing/BDFR-Test-Publisher.cer | Out-Null
+          "BDFR_TEST_CERT_THUMBPRINT=$($cert.Thumbprint)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Sign and verify ShopManager Windows executable and installer
+        shell: pwsh
+        run: |
+          $sdk = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Filter signtool.exe -Recurse | Where-Object { $_.FullName -match "\\x64\\signtool.exe$" } | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $sdk) { throw "Windows SDK SignTool not found" }
+          $files = @(Get-Item "dist/ShopManager.exe", "artifacts/ShopManager-Setup-x64.exe")
+          foreach ($file in $files) {
+            & $sdk.FullName sign /fd SHA256 /sha1 "$env:BDFR_TEST_CERT_THUMBPRINT" $file.FullName
+            if ($LASTEXITCODE -ne 0) { throw "SignTool failed: $($file.Name)" }
+            & $sdk.FullName verify /pa /v $file.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Signature verification failed: $($file.Name)" }
+          }
+          $files | ForEach-Object { Get-FileHash $_.FullName -Algorithm SHA256 } |
+            ForEach-Object { "$($_.Hash) *$($_.Path)" } |
+            Set-Content artifacts/signing/SHA256SUMS.txt
+          Write-Host "Signed and verified $($files.Count) Windows files. Certificate is self-signed and test-only."
       - name: Upload in-place Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: ShopManager-Windows-Installer
-          path: artifacts/ShopManager-Setup-x64.exe
+          path: |
+            artifacts/ShopManager-Setup-x64.exe
+            artifacts/signing/*
           if-no-files-found: error
           retention-days: 30
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
           name: ShopManager-Windows
-          path: dist/ShopManager.exe
+          path: |
+            dist/ShopManager.exe
+            artifacts/signing/*
           if-no-files-found: error
           retention-days: 30
       - name: Publish Windows EXE in GitHub Releases
